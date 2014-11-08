@@ -24,6 +24,8 @@ int priority[N];
    priority[5] 捨てる言語
  */
 
+double K = 1.3;
+
 // ターンでの変数
 int turn; // 現在のターン
 bool isweekday; // 平日か？
@@ -128,7 +130,7 @@ bool hantei(int lang, bool istop) {
       m = min(m, B[lang][i]);
     }
   }
-  return (R[lang] >= m + W[lang]);
+  return (R[lang] >= m + K*W[lang]);
 }
 
 bool isgood(int lang_priority) {
