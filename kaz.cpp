@@ -24,7 +24,9 @@ int priority[N];
    priority[5] 捨てる言語
  */
 
-double K = 1.3;
+double K = 1.3; // 係数
+bool is_defined_amari = false;
+int amari = 0; // 余った時 
 
 // ターンでの変数
 int turn; // 現在のターン
@@ -87,6 +89,7 @@ void first_init() {
     }
   }  
  EXIT_OF_PRIORITY_345:
+  amari = priority[3];
   return;
 }
 
@@ -142,6 +145,25 @@ bool isgood(int lang_priority) {
   }
 }
 
+void define_amari() { // priority[2,3,4]から選ぶ
+  int ret_lang = priority[2];
+  int distance = 10000;
+  for (int i=2; i<=4; i++) {
+    int lang = priority[i];
+    int temp = -10000;
+    for (int j=1; j<P; j++) {
+      temp = max(temp, B[lang][j]);
+    }
+    int tdist = temp + K*W[lang] - R[lang];
+    if (tdist < distance) {
+      distance = tdist;
+      ret_lang = lang;
+    }
+  }
+  amari = ret_lang;
+  is_defined_amari = true;
+}
+
 void determine_L() {
   if (turn == 1) {
     for (int i=0; i<days; i++) {
@@ -166,7 +188,10 @@ void determine_L() {
     }
     // 枠が余ったら
     while (now_c < days) {
-      L[now_c++] = priority[3];
+      if (!is_defined_amari) {
+	define_amari();
+      }
+      L[now_c++] = amari;
     }
   }
 }
