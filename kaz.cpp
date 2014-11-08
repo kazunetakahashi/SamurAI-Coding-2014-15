@@ -24,10 +24,11 @@ int priority[N];
    priority[5] 捨てる言語
  */
 
-double K_top = 1.35; // トップになるための係数
+double K_top = 1.3; // トップになるための係数
 double K_bottom = 1.3; // 最下位にならないための係数
-bool is_defined_amari = false;
-int amari = 0; // 余った時 
+/* bool is_defined_amari = false;
+   int amari = 0; // 余った時  */
+int now_amari = 0;
 
 // ターンでの変数
 int turn; // 現在のターン
@@ -37,6 +38,8 @@ int R[N]; // 自分の本当の投票数
 int W[N]; // 前の休日までの、明らかになっていない休日の布教回数(自分を除く)
 int days; // 最大数
 int L[wdays]; // 出力
+bool voted_tops = false;
+bool voted_bottoms = false;
 
 void first_init() {
   // 初期化・入力
@@ -90,7 +93,7 @@ void first_init() {
     }
   }  
  EXIT_OF_PRIORITY_345:
-  amari = priority[3];
+  // amari = priority[3];
   return;
 }
 
@@ -149,6 +152,7 @@ bool isgood(int lang_priority) {
   }
 }
 
+/*
 void define_amari() { // priority[2,3,4]から選ぶ
   int ret_lang = priority[2];
   int distance = 10000;
@@ -167,6 +171,7 @@ void define_amari() { // priority[2,3,4]から選ぶ
   amari = ret_lang;
   is_defined_amari = true;
 }
+*/
 
 void determine_L() {
   if (turn == 1) {
@@ -175,7 +180,7 @@ void determine_L() {
     }
   } else if (turn == 2) {
     for (int i=0; i<days; i++) {
-      L[i] = priority[0];
+      L[i] = priority[i];
     }
   } else {
     int now_c = 0;
@@ -185,6 +190,8 @@ void determine_L() {
       if (!isgood(now_p)) {
 	int lang = priority[now_p];
 	L[now_c++] = lang;
+	if (now_p <= 1) voted_tops = true;
+	if (now_p >= 2) voted_bottoms = true;
 	R[lang] += ((isweekday) ? 1 : 2);
       } else {
 	now_p++;
@@ -192,10 +199,10 @@ void determine_L() {
     }
     // 枠が余ったら
     while (now_c < days) {
-      if (!is_defined_amari) {
+      /* if (!is_defined_amari) {
 	define_amari();
-      }
-      L[now_c++] = amari;
+	} */
+      L[now_c++] = priority[(now_amari++)%5];
     }
   }
 }
@@ -214,13 +221,26 @@ void turn_output() {
   cout << endl;
 }
 
+void circle() {
+  if (voted_tops) {
+    swap(priority[0], priority[1]);
+    voted_tops = false;
+  }
+  if (voted_bottoms) {
+    swap(priority[2], priority[3]);
+    swap(priority[3], priority[4]);
+    voted_bottoms = false;
+  }
+}
+
 int main() {
   cout << "READY" << endl;
   // ゲーム設定の入力
   first_init();
-  // ターン情報の入力
+  // ターン情報
   for (int t=1; t<=T; t++) {
     turn_init();
     turn_output();
+    circle();
   }
 }
