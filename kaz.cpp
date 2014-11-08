@@ -24,7 +24,8 @@ int priority[N];
    priority[5] 捨てる言語
  */
 
-double K = 1.3; // 係数
+double K_top = 1.35; // トップになるための係数
+double K_bottom = 1.3; // 最下位にならないための係数
 bool is_defined_amari = false;
 int amari = 0; // 余った時 
 
@@ -126,14 +127,17 @@ void turn_init() {
 bool hantei(int lang, bool istop) {
   // // cerr << "days = " << days << endl;
   int m = B[lang][1];
+  int K = K_top;
   for (int i=1; i<P; i++) {
     if (istop) {
       m = max(m, B[lang][i]);
+      K = K_top;
     } else {
       m = min(m, B[lang][i]);
+      K = K_bottom;
     }
   }
-  return (R[lang] >= m + K*W[lang]);
+  return (R[lang] >= m + K * W[lang]);
 }
 
 bool isgood(int lang_priority) {
@@ -154,7 +158,7 @@ void define_amari() { // priority[2,3,4]から選ぶ
     for (int j=1; j<P; j++) {
       temp = max(temp, B[lang][j]);
     }
-    int tdist = temp + K*W[lang] - R[lang];
+    int tdist = temp + K_top*W[lang] - R[lang];
     if (tdist < distance) {
       distance = tdist;
       ret_lang = lang;
