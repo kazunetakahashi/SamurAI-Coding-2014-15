@@ -24,7 +24,7 @@ int priority[N];
    priority[5] 捨てる言語
  */
 
-double K_top = 1.3; // トップになるための係数
+double K_top = 1.35; // トップになるための係数
 double K_bottom = 1.3; // 最下位にならないための係数
 /* bool is_defined_amari = false;
    int amari = 0; // 余った時  */
@@ -130,7 +130,7 @@ void turn_init() {
 bool hantei(int lang, bool istop) {
   // // cerr << "days = " << days << endl;
   int m = B[lang][1];
-  int K = K_top;
+  double K = K_top;
   for (int i=1; i<P; i++) {
     if (istop) {
       m = max(m, B[lang][i]);
