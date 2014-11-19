@@ -5,23 +5,23 @@ using namespace std;
 
 // 大域変数
 const int T = 9; // 全ターン数
-const int P = 4; // プレイヤー数
-const int N = 6; // プログラミングの言語数
+const int P = 4; // プレイヤー(大名)数
+const int N = 6; // 領主の数
 const int maxpt = 6;
 const int minpt = 3;
-const int wdays = 5;
-const int hdays = 2;
-int A[N]; // 言語の注目数
+const int noonpeople = 5;
+const int nightpeople = 2;
+int A[N]; // 領主の兵力
 int priority[N];
 /* 
-   priority[0] 取りに行く言語1
-   priority[1] 取りに行く言語2
+   priority[0] 取りに行く領主1
+   priority[1] 取りに行く領主2
 
-   priority[2] 落とさない言語1
-   priority[3] 落とさない言語2 できれば取りにいく
-   priority[4] 落とさない言語3
+   priority[2] 落とさない領主1
+   priority[3] 落とさない領主2 できれば取りにいく
+   priority[4] 落とさない領主3
 
-   priority[5] 捨てる言語
+   priority[5] 捨てる領主
  */
 
 double K_top = 1.35; // トップになるための係数
@@ -32,14 +32,14 @@ int now_amari = 0;
 
 // ターンでの変数
 int turn; // 現在のターン
-bool isweekday; // 平日か？
-int B[N][P]; // B[n][p] = プレイヤーpの言語nへの信者数
+bool isnoon; // 昼か？
+int B[N][P]; // B[n][p] = プレイヤーpの領主nへの親密度
 int R[N]; // 自分の本当の投票数
-int W[N]; // 前の休日までの、明らかになっていない休日の布教回数(自分を除く)
-int days; // 最大数
-int L[wdays]; // 出力
-bool voted_tops = false;
-bool voted_bottoms = false;
+int W[N]; // 前の休日までの、明らかになっていない夜の交渉回数(自分を除く)
+int people; // 出力数
+int L[noonpeople]; // 出力
+bool voted_tops = false; // そのターンに「取りに行く領主」に投票したか
+bool voted_bottoms = false; // そのターンに「落とさない領主」に投票したか
 
 void first_init() {
   // 初期化・入力
@@ -101,11 +101,11 @@ void turn_init() {
   cin >> turn;
   char D;
   cin >> D;
-  isweekday = (D == 'W');
-  if (isweekday) {
-    days = wdays;
+  isnoon = (D == 'D');
+  if (isnoon) {
+    people = noonpeople;
   } else {
-    days = hdays;
+    people = nightpeople;
   }
   for (int i=0; i<N; i++) {
     for (int j=0; j<P; j++) {
@@ -118,7 +118,7 @@ void turn_init() {
   if (turn == 6) {
     fill(W, W+P, 0);
   }
-  if (isweekday) {
+  if (isnoon) {
     for (int i=0; i<N; i++) {
       int w;
       cin >> w;
@@ -127,81 +127,56 @@ void turn_init() {
   }
 }
 
-bool hantei(int lang, bool istop) {
-  // // cerr << "days = " << days << endl;
-  int m = B[lang][1];
+bool hantei(int lord, bool istop) {
+  int m = B[lord][1];
   double K = K_top;
   for (int i=1; i<P; i++) {
     if (istop) {
-      m = max(m, B[lang][i]);
+      m = max(m, B[lord][i]);
       K = K_top;
     } else {
-      m = min(m, B[lang][i]);
+      m = min(m, B[lord][i]);
       K = K_bottom;
     }
   }
-  return (R[lang] >= m + K * W[lang]);
+  return (R[lord] >= m + K * W[lord]);
 }
 
-bool isgood(int lang_priority) {
-  int lang = priority[lang_priority];
-  if (lang_priority <= 1) {
-    return hantei(lang, true);
+bool isgood(int lord_priority) {
+  int lord = priority[lord_priority];
+  if (lord_priority <= 1) {
+    return hantei(lord, true);
   } else {
-    return hantei(lang, false);
+    return hantei(lord, false);
   }
 }
-
-/*
-void define_amari() { // priority[2,3,4]から選ぶ
-  int ret_lang = priority[2];
-  int distance = 10000;
-  for (int i=2; i<=4; i++) {
-    int lang = priority[i];
-    int temp = -10000;
-    for (int j=1; j<P; j++) {
-      temp = max(temp, B[lang][j]);
-    }
-    int tdist = temp + K_top*W[lang] - R[lang];
-    if (tdist < distance) {
-      distance = tdist;
-      ret_lang = lang;
-    }
-  }
-  amari = ret_lang;
-  is_defined_amari = true;
-}
-*/
 
 void determine_L() {
   if (turn == 1) {
-    for (int i=0; i<days; i++) {
+    for (int i=0; i<people; i++) {
       L[i] = priority[4-i];
     }
   } else if (turn == 2) {
-    for (int i=0; i<days; i++) {
+    for (int i=0; i<people; i++) {
       L[i] = priority[i];
     }
   } else {
     int now_c = 0;
     int now_p = 0;
     // 戦略に基づき割り振る
-    while (now_p < 5 && now_c < days) {
+    while (now_p < 5 && now_c < people) {
       if (!isgood(now_p)) {
-	int lang = priority[now_p];
-	L[now_c++] = lang;
+	int lord = priority[now_p];
+	L[now_c++] = lord;
 	if (now_p <= 1) voted_tops = true;
 	if (now_p >= 2) voted_bottoms = true;
-	R[lang] += ((isweekday) ? 1 : 2);
+	R[lord] += ((isnoon) ? 1 : 2);
       } else {
 	now_p++;
       }
     }
     // 枠が余ったら
-    while (now_c < days) {
-      /* if (!is_defined_amari) {
-	define_amari();
-	} */
+    while (now_c < people) {
       L[now_c++] = priority[(now_amari++)%5];
     }
   }
@@ -209,16 +184,17 @@ void determine_L() {
 
 void turn_output() {
   determine_L();
-  for (int i=0; i<days; i++) {
+  for (int i=0; i<people; i++) {
     cout << L[i];
-    if (i != days-1) {
+    if (i != people-1) {
       cout << " ";
     }
-    if(!isweekday) {
+    if(!isnoon) {
       W[L[i]]--;
     }
   }
   cout << endl;
+  
 }
 
 void circle() {
