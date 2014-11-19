@@ -1,8 +1,6 @@
-Code_Fes_AI_Challenge
+SamurAI-Coding-2014-15 
 =====================
 
-Code Festival 2014 AI Challenge で提出したプログラム。
+_「俺にはまだ、なすべきことがある…！」_
 
-決勝トーナメントで第3位になりました。
-
-http://www.slideshare.net/exKAZUu/ai-challenge-code-festival-2014
+http://samuraicoding.info/index-jp.html
