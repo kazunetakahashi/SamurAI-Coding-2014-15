@@ -24,10 +24,12 @@ int priority[N];
    priority[5] 捨てる領主
  */
 
-double K_top = 1.35; // トップになるための係数
-double K_bottom = 1.3; // 最下位にならないための係数
-/* bool is_defined_amari = false;
-   int amari = 0; // 余った時  */
+double K_top[2] = {1.35, 1.4}; // トップになるための係数
+double K_bottom[2] = {1.2, 1.2}; // 最下位にならないための係数
+double C_top[2] = {1, 0}; // トップになるための定数
+double C_bottom[2] = {0, 0}; // 最下位にならないための定数
+
+
 int now_amari = 0;
 
 // ターンでの変数
@@ -129,17 +131,21 @@ void turn_init() {
 
 bool hantei(int lord, bool istop) {
   int m = B[lord][1];
-  double K = K_top;
+  double K = K_top[0];
+  double Const = C_top[0];
+  int be_af = ( (turn <= 5) ? 0 : 1 );
   for (int i=1; i<P; i++) {
     if (istop) {
       m = max(m, B[lord][i]);
-      K = K_top;
+      K = K_top[be_af];
+      Const = C_top[be_af];
     } else {
       m = min(m, B[lord][i]);
-      K = K_bottom;
+      K = K_bottom[be_af];
+      Const = C_bottom[be_af];
     }
   }
-  return (R[lord] >= m + K * W[lord]);
+  return (R[lord] >= m + K * W[lord] + Const);
 }
 
 bool isgood(int lord_priority) {
@@ -177,6 +183,7 @@ void determine_L() {
     }
     // 枠が余ったら
     while (now_c < people) {
+      // cerr << "amari" << endl;
       L[now_c++] = priority[(now_amari++)%5];
     }
   }
@@ -184,6 +191,7 @@ void determine_L() {
 
 void turn_output() {
   determine_L();
+  sort(L, L+people);
   for (int i=0; i<people; i++) {
     cout << L[i];
     if (i != people-1) {
@@ -194,7 +202,6 @@ void turn_output() {
     }
   }
   cout << endl;
-  
 }
 
 void circle() {
