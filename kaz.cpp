@@ -13,19 +13,9 @@ const int noonpeople = 5;
 const int nightpeople = 2;
 int A[N]; // 領主の兵力
 int priority[N];
-/* 
-   priority[0] 取りに行く領主1
-   priority[1] 取りに行く領主2
 
-   priority[2] 落とさない領主1
-   priority[3] 落とさない領主2 できれば取りにいく
-   priority[4] 落とさない領主3
-
-   priority[5] 捨てる領主
- */
-
-double K_top[2] = {1.35, 1.4}; // トップになるための係数
-double K_bottom[2] = {1.2, 1.2}; // 最下位にならないための係数
+double K_top[2] = {1.35, 1.35}; // トップになるための係数
+double K_bottom[2] = {1.3, 1.3}; // 最下位にならないための係数
 double C_top[2] = {1, 0}; // トップになるための定数
 double C_bottom[2] = {0, 0}; // 最下位にならないための定数
 
