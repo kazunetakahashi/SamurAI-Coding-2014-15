@@ -3,10 +3,11 @@
 #include <cassert>
 using namespace std;
 
-// 大域変数
+// 大域変数・定数
 const int T = 9; // 全ターン数
 const int P = 4; // プレイヤー(大名)数
 const int N = 6; // 領主の数
+const int remain[10] = {23, 23, 18, 14, 9, 5, 18, 14, 9, 5}; // 残り投票数
 const int maxpt = 6;
 const int minpt = 3;
 const int noonpeople = 5;
@@ -15,28 +16,13 @@ int A[N]; // 領主の兵力
 int total_score; // 兵力の合計値
 int minimum_score; // 合格最低点
 int priority[N];
-<<<<<<< Updated upstream
-/* 
-   priority[0] 取りに行く領主1
-   priority[1] 取りに行く領主2
-
-   priority[2] 落とさない領主1
-   priority[3] 落とさない領主2 できれば取りにいく
-   priority[4] 落とさない領主3
-
-   priority[5] 捨てる領主
- */
-
-double K_top[2] = {1.35, 1.4}; // トップになるための係数
-double K_bottom[2] = {1.2, 1.2}; // 最下位にならないための係数
-=======
+int x_now=0, y_now=0; // 現在の戦略
 int top_load, bottom_load;
 int now_amari = 0;
 
 // 戦略変数
 double K_top[2] = {1.35, 1.35}; // トップになるための係数
 double K_bottom[2] = {1.3, 1.3}; // 最下位にならないための係数
->>>>>>> Stashed changes
 double C_top[2] = {1, 0}; // トップになるための定数
 double C_bottom[2] = {0, 0}; // 最下位にならないための定数
 double minimum_rate = 0.35; // 合格最低点/兵力の合計値
@@ -198,10 +184,35 @@ int score(int x) {
 
 void determine_priority() {
   determine_minimum_score();
+  int max_waste = -100000;
+  int max_x = x_now;
+  int max_y = y_now;
   for (int x=0; x< (1 << N); x++) {
     for (int y=0; y< (1 << N); y++) {
       if (isvalid(x, y) && score(x) > minimum_score) {
-        
+        // そもそも残りのターンで実現可能か？
+        int n_vote = 0;
+        for (int i=0; i<N; i++) {
+          if ( (x >> i) & 1 ) {
+            n_vote += max(need_votes(i, true) - R[i], 0);
+          } else if ( (y >> i) & 1 ) {
+            n_vote += max(need_votes(i, false) - R[i], 0);            
+          } else {
+            // 投票する必要はない
+          }
+        }
+        if (n_vote > remain[turn]) continue;
+        // 相手に捨てさせる票数の計算
+        int waste = 0;
+        for (int i=0; i<N; i++) {
+          if ( (x >> i) & 1 ) {
+            
+          } else if ( (y >> i) & 1 ) {
+            
+          } else {
+
+          }
+        }
       }
     }
   }
