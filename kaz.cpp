@@ -12,7 +12,10 @@ const int minpt = 3;
 const int noonpeople = 5;
 const int nightpeople = 2;
 int A[N]; // 領主の兵力
+int total_score; // 兵力の合計値
+int minimum_score; // 合格最低点
 int priority[N];
+<<<<<<< Updated upstream
 /* 
    priority[0] 取りに行く領主1
    priority[1] 取りに行く領主2
@@ -26,11 +29,17 @@ int priority[N];
 
 double K_top[2] = {1.35, 1.4}; // トップになるための係数
 double K_bottom[2] = {1.2, 1.2}; // 最下位にならないための係数
+=======
+int top_load, bottom_load;
+int now_amari = 0;
+
+// 戦略変数
+double K_top[2] = {1.35, 1.35}; // トップになるための係数
+double K_bottom[2] = {1.3, 1.3}; // 最下位にならないための係数
+>>>>>>> Stashed changes
 double C_top[2] = {1, 0}; // トップになるための定数
 double C_bottom[2] = {0, 0}; // 最下位にならないための定数
-
-
-int now_amari = 0;
+double minimum_rate = 0.35; // 合格最低点/兵力の合計値
 
 // ターンでの変数
 int turn; // 現在のターン
@@ -49,8 +58,10 @@ void first_init() {
   cin >> x;
   cin >> x;
   cin >> x;
+  total_score = 0;
   for (int i=0; i<N; i++) {
     cin >> A[i];
+    total_score += A[i];
   }
   fill(W, W+N, 0);
   // priorityの確定
@@ -129,7 +140,7 @@ void turn_init() {
   }
 }
 
-bool hantei(int lord, bool istop) {
+int need_votes(int lord, bool istop) {
   int m = B[lord][1];
   double K = K_top[0];
   double Const = C_top[0];
@@ -145,8 +156,13 @@ bool hantei(int lord, bool istop) {
       Const = C_bottom[be_af];
     }
   }
-  return (R[lord] >= m + K * W[lord] + Const);
+  return m + K * W[lord] + Const;
 }
+
+bool hantei(int lord, bool istop) {
+  return R[lord] >= need_votes(lord, istop);
+}
+
 
 bool isgood(int lord_priority) {
   int lord = priority[lord_priority];
@@ -157,10 +173,44 @@ bool isgood(int lord_priority) {
   }
 }
 
+void determine_minimum_score() {
+  minimum_score = (int) (minimum_rate * total_score);
+}
+
+bool isvalid(int x, int y) { // xはtopに1が立っている。yはtopとbottomに1が立っている。xに1が立っているのにyに0が立っている場合はfalseを返す。そうでなければ有効なのでtrueを返す。
+  for (int i=0; i<N; i++) {
+    if ( (((x >> i) & 1) == 1) && (((y >> i) & 1) == 0) ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+int score(int x) {
+  int ret = 0;
+  for (int i=0; i<N; i++) {
+    if ((x >> i) & 1) {
+      ret += A[i];
+    }
+  }
+  return ret;
+}
+
+void determine_priority() {
+  determine_minimum_score();
+  for (int x=0; x< (1 << N); x++) {
+    for (int y=0; y< (1 << N); y++) {
+      if (isvalid(x, y) && score(x) > minimum_score) {
+        
+      }
+    }
+  }
+}
+
 void determine_L() {
   if (turn == 1) {
     for (int i=0; i<people; i++) {
-      L[i] = priority[4-i];
+      L[i] = priority[i];
     }
   } else if (turn == 2) {
     for (int i=0; i<people; i++) {
