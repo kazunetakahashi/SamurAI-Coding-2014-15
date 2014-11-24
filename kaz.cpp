@@ -17,7 +17,7 @@ int total_score; // 兵力の合計値
 int minimum_score; // 合格最低点
 int priority[N];
 int x_now=0, y_now=0; // 現在の戦略
-int top_load, bottom_load;
+int top_lord=2, bottom_lord=3;
 int now_amari = 0;
 
 // 戦略変数
@@ -126,23 +126,31 @@ void turn_init() {
   }
 }
 
-int need_votes(int lord, bool istop) {
-  int m = B[lord][1];
+int expected_votes(int lord, bool istop, int daimyo) {
+  int m = B[lord][daimyo];
   double K = K_top[0];
   double Const = C_top[0];
   int be_af = ( (turn <= 5) ? 0 : 1 );
-  for (int i=1; i<P; i++) {
-    if (istop) {
-      m = max(m, B[lord][i]);
-      K = K_top[be_af];
-      Const = C_top[be_af];
-    } else {
-      m = min(m, B[lord][i]);
-      K = K_bottom[be_af];
-      Const = C_bottom[be_af];
-    }
+  if (istop) {
+    K = K_top[be_af];
+    Const = C_top[be_af];
+  } else {
+    K = K_bottom[be_af];
+    Const = C_bottom[be_af];
   }
   return m + K * W[lord] + Const;
+}
+
+int need_votes(int lord, bool istop) {
+  int ret = 0;
+  for (int i=1; i<P; i++) {
+    if (istop) {
+      ret = max(ret, expected_votes(lord, istop, i));
+    } else {
+      ret = min(ret, expected_votes(lord, istop, i));
+    }
+  }
+  return ret;
 }
 
 bool hantei(int lord, bool istop) {
@@ -152,7 +160,7 @@ bool hantei(int lord, bool istop) {
 
 bool isgood(int lord_priority) {
   int lord = priority[lord_priority];
-  if (lord_priority <= 1) {
+  if (lord_priority < top_lord) {
     return hantei(lord, true);
   } else {
     return hantei(lord, false);
@@ -172,11 +180,14 @@ bool isvalid(int x, int y) { // xはtopに1が立っている。yはtopとbottom
   return true;
 }
 
-int score(int x) {
+int score(int x, int y) {
   int ret = 0;
   for (int i=0; i<N; i++) {
     if ((x >> i) & 1) {
       ret += A[i];
+    }
+    if (((y >> i) & 1) == 0) {
+      ret -= A[i];
     }
   }
   return ret;
@@ -189,7 +200,7 @@ void determine_priority() {
   int max_y = y_now;
   for (int x=0; x< (1 << N); x++) {
     for (int y=0; y< (1 << N); y++) {
-      if (isvalid(x, y) && score(x) > minimum_score) {
+      if (isvalid(x, y) && score(x, y) > minimum_score) {
         // そもそも残りのターンで実現可能か？
         int n_vote = 0;
         for (int i=0; i<N; i++) {
@@ -205,16 +216,68 @@ void determine_priority() {
         // 相手に捨てさせる票数の計算
         int waste = 0;
         for (int i=0; i<N; i++) {
-          if ( (x >> i) & 1 ) {
-            
-          } else if ( (y >> i) & 1 ) {
-            
-          } else {
-
+          // Bを破壊しないように、整列用の配列を用意
+          pair<int, int> sorted_B[P];
+          for (int j=1; j<P; j++) {
+            sorted_B[j-1] = make_pair(B[i][j], j);
           }
+          sort(sorted_B, sorted_B+P-1);
+          reverse(sorted_B, sorted_B+P-1);
+          if ( (x >> i) & 1 ) {
+            // 捨てる票はない
+          } else if ( (y >> i) & 1 ) {
+            int myvotes = need_votes(i, false);
+            // 1位の人と2位の人の票が捨てさせる票
+            for (int j=0; j<P-2; j++) {
+              waste += max(0,
+                           expected_votes(i, true, sorted_B[j].second)
+                           *(P-2-j)/(P-2)
+                           + expected_votes(i, false, sorted_B[j].second)
+                           *j/(P-2)
+                           - myvotes);
+            }
+          } else {
+            int myvotes = R[i];
+            // 全員の票が捨てさせる票
+            for (int j=0; j<P-1; j++) {
+              waste += max(0,
+                           expected_votes(i, true, sorted_B[j].second)
+                           *(P-2-j)/(P-2)
+                           + expected_votes(i, false, sorted_B[j].second)
+                           *j/(P-2)
+                           - myvotes);
+            }
+          }          
+        }
+        // 今までの中で最も良い戦略なら採用
+        if (waste > max_waste) {
+          max_waste = waste;
+          max_x = x;
+          max_y = y;
         }
       }
     }
+  }
+  // 採用された戦略を記録する。
+  x_now = max_x;
+  y_now = max_y;
+  pair<int, int> temp_priority[N];
+  top_lord = 0;
+  bottom_lord = 0;
+  for (int i=0; i<N; i++) {
+    if ( (x_now >> i) & 1 ) {
+      temp_priority[i] = make_pair(0, i);
+      top_lord++;
+    } else if ( (y_now >> i) & 1 ) {
+      temp_priority[i] = make_pair(1, i);
+      bottom_lord++;
+    } else {
+      temp_priority[i] = make_pair(2, i);
+    }
+  }
+  sort(temp_priority, temp_priority+N);
+  for (int i=0; i<N; i++) {
+    priority[i] = temp_priority[i].second;
   }
 }
 
@@ -223,20 +286,19 @@ void determine_L() {
     for (int i=0; i<people; i++) {
       L[i] = priority[i];
     }
-  } else if (turn == 2) {
-    for (int i=0; i<people; i++) {
-      L[i] = priority[i];
-    }
   } else {
     int now_c = 0;
     int now_p = 0;
     // 戦略に基づき割り振る
-    while (now_p < 5 && now_c < people) {
+    while (now_p < top_lord+bottom_lord && now_c < people) {
       if (!isgood(now_p)) {
 	int lord = priority[now_p];
 	L[now_c++] = lord;
-	if (now_p <= 1) voted_tops = true;
-	if (now_p >= 2) voted_bottoms = true;
+	if (now_p < top_lord) {
+          voted_tops = true;
+        } else {
+          voted_bottoms = true;
+        }
 	R[lord] += ((isnoon) ? 1 : 2);
       } else {
 	now_p++;
@@ -244,13 +306,14 @@ void determine_L() {
     }
     // 枠が余ったら
     while (now_c < people) {
-      // cerr << "amari" << endl;
-      L[now_c++] = priority[(now_amari++)%5];
+      now_amari %= top_lord+bottom_lord;
+      L[now_c++] = priority[(now_amari++)%(top_lord+bottom_lord)];
     }
   }
 }
 
 void turn_output() {
+  if (turn >= 2) determine_priority();
   determine_L();
   sort(L, L+people);
   for (int i=0; i<people; i++) {
@@ -265,6 +328,7 @@ void turn_output() {
   cout << endl;
 }
 
+/*
 void circle() {
   if (voted_tops) {
     swap(priority[0], priority[1]);
@@ -276,6 +340,7 @@ void circle() {
     voted_bottoms = false;
   }
 }
+*/
 
 int main() {
   cout << "READY" << endl;
@@ -285,6 +350,6 @@ int main() {
   for (int t=1; t<=T; t++) {
     turn_init();
     turn_output();
-    circle();
+    /* circle(); */
   }
 }
