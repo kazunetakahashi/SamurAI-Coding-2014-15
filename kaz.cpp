@@ -3,11 +3,13 @@
 #include <cassert>
 using namespace std;
 
+bool debug = false;
+
 // 大域変数・定数
 const int T = 9; // 全ターン数
 const int P = 4; // プレイヤー(大名)数
 const int N = 6; // 領主の数
-const int remain[10] = {23, 23, 18, 14, 9, 5, 18, 14, 9, 5}; // 残り投票数
+const int remain[10] = {23, 12, 12, 10, 7, 5, 12, 10, 7, 5}; // 見込み投票数
 const int maxpt = 6;
 const int minpt = 3;
 const int noonpeople = 5;
@@ -23,9 +25,9 @@ int now_amari = 0;
 // 戦略変数
 double K_top[2] = {1.35, 1.35}; // トップになるための係数
 double K_bottom[2] = {1.3, 1.3}; // 最下位にならないための係数
-double C_top[2] = {1, 0}; // トップになるための定数
+double C_top[2] = {1, 1}; // トップになるための定数
 double C_bottom[2] = {0, 0}; // 最下位にならないための定数
-double minimum_rate = 0.35; // 合格最低点/兵力の合計値
+double minimum_rate = 0.25; // 合格最低点/兵力の合計値
 
 // ターンでの変数
 int turn; // 現在のターン
@@ -142,7 +144,7 @@ int expected_votes(int lord, bool istop, int daimyo) {
 }
 
 int need_votes(int lord, bool istop) {
-  int ret = 0;
+  int ret = expected_votes(lord, istop, 1);
   for (int i=1; i<P; i++) {
     if (istop) {
       ret = max(ret, expected_votes(lord, istop, i));
@@ -276,8 +278,18 @@ void determine_priority() {
     }
   }
   sort(temp_priority, temp_priority+N);
+  if (debug) {
+    cerr << "max_waste: " << max_waste << endl;
+    cerr << "priority: ";
+  }
   for (int i=0; i<N; i++) {
     priority[i] = temp_priority[i].second;
+    if (debug )cerr << priority[i] << " ";
+  }
+  if (debug) {
+    cerr << endl;
+    cerr << "top_lord: " << top_lord << endl;
+    cerr << "bottom_lord: " << bottom_lord << endl;
   }
 }
 
@@ -308,6 +320,7 @@ void determine_L() {
     while (now_c < people) {
       now_amari %= top_lord+bottom_lord;
       L[now_c++] = priority[(now_amari++)%(top_lord+bottom_lord)];
+      if (debug) cerr << "amari" << endl;
     }
   }
 }
