@@ -9,7 +9,7 @@ bool debug = false;
 const int T = 9; // 全ターン数
 const int P = 4; // プレイヤー(大名)数
 const int N = 6; // 領主の数
-const int remain[10] = {23, 12, 12, 10, 7, 5, 12, 10, 7, 5}; // 見込み投票数
+const int remain[10] = {23, 9, 8, 7, 6, 5, 8, 7, 6, 5}; // 見込み投票数
 const int maxpt = 6;
 const int minpt = 3;
 const int noonpeople = 5;
@@ -23,11 +23,11 @@ int top_lord=2, bottom_lord=3;
 int now_amari = 0;
 
 // 戦略変数
-double K_top[2] = {1.35, 1.35}; // トップになるための係数
-double K_bottom[2] = {1.3, 1.3}; // 最下位にならないための係数
-double C_top[2] = {1, 1}; // トップになるための定数
-double C_bottom[2] = {0, 0}; // 最下位にならないための定数
-double minimum_rate = 0.25; // 合格最低点/兵力の合計値
+double K_top[2] = {1.4, 1.4}; // トップになるための係数
+double K_bottom[2] = {1.35, 1.35}; // 最下位にならないための係数
+double C_top[2] = {1.3, 1.3}; // トップになるための定数
+double C_bottom[2] = {1.2, 1.2}; // 最下位にならないための定数
+double minimum_rate = 0.1; // 合格最低点/兵力の合計値
 
 // ターンでの変数
 int turn; // 現在のターン
@@ -284,7 +284,7 @@ void determine_priority() {
   }
   for (int i=0; i<N; i++) {
     priority[i] = temp_priority[i].second;
-    if (debug )cerr << priority[i] << " ";
+    if (debug) cerr << priority[i] << " ";
   }
   if (debug) {
     cerr << endl;
@@ -295,9 +295,11 @@ void determine_priority() {
 
 void determine_L() {
   if (turn == 1) {
-    for (int i=0; i<people; i++) {
-      L[i] = priority[i];
-    }
+      L[0] = priority[0];
+      L[1] = priority[1];    
+      L[2] = priority[2];    
+      L[3] = priority[3];    
+      L[4] = priority[4];    
   } else {
     int now_c = 0;
     int now_p = 0;
