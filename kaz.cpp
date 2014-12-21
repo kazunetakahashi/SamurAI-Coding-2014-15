@@ -1,6 +1,7 @@
 #include <iostream>
 #include <algorithm>
 #include <cassert>
+// #include <random>
 using namespace std;
 
 bool debug = false;
@@ -23,11 +24,32 @@ int top_lord=2, bottom_lord=3;
 int now_amari = 0;
 
 // 戦略変数
+double ai_num = 15; // 0から12まで。これだけ動かす。
+
+double alpha = 1 - ai_num/10;
+double beta = 1 - alpha;
+
 double K_top[2] = {1.4, 1.4}; // トップになるための係数
 double K_bottom[2] = {1.35, 1.35}; // 最下位にならないための係数
 double C_top[2] = {1.3, 1.3}; // トップになるための定数
 double C_bottom[2] = {1.2, 1.2}; // 最下位にならないための定数
 double minimum_rate = 0.1; // 合格最低点/兵力の合計値
+
+void keisu(double* p, double x, double y) {
+  *p = alpha * x + beta * y;
+}
+
+void senryaku_hansu() {
+  keisu(&K_top[0], 1.35, 1.4);
+  keisu(&K_top[1], 1.35, 1.4);
+  keisu(&K_bottom[0], 1.35, 1.3);
+  keisu(&K_bottom[1], 1.35, 1.3);
+  keisu(&C_top[0], 1, 1.3);
+  keisu(&C_top[1], 1, 1.3);
+  keisu(&C_bottom[0], 0.5, 1.2);
+  keisu(&C_bottom[1], 0.5, 1.2);
+  keisu(&minimum_rate, 0.25, 0.1);  
+}
 
 // ターンでの変数
 int turn; // 現在のターン
@@ -41,6 +63,8 @@ bool voted_tops = false; // そのターンに「取りに行く領主」に投�
 bool voted_bottoms = false; // そのターンに「落とさない領主」に投票したか
 
 void first_init() {
+  // 係数の設定
+  senryaku_hansu();
   // 初期化・入力
   int x;
   cin >> x;
@@ -295,11 +319,12 @@ void determine_priority() {
 
 void determine_L() {
   if (turn == 1) {
-      L[0] = priority[0];
-      L[1] = priority[1];    
-      L[2] = priority[2];    
-      L[3] = priority[3];    
-      L[4] = priority[4];    
+    // random_device rd;
+    // mt19937 mt(rd());
+    for (int i=0; i<5; i++) {
+      L[i] = priority[i];
+      // L[i] = priority[mt()%6];
+    }
   } else {
     int now_c = 0;
     int now_p = 0;
