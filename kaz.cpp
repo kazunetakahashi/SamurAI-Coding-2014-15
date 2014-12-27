@@ -24,32 +24,15 @@ int top_lord=2, bottom_lord=3;
 int now_amari = 0;
 
 // 戦略変数
-double ai_num = 15; // 0から12まで。これだけ動かす。
+double ai_num = 14; // 0から15まで。動かす。
+double ai_last = 4; // 0から15まで。動かす。
+double alpha, beta;
 
-double alpha = 1 - ai_num/10;
-double beta = 1 - alpha;
-
-double K_top[2] = {1.4, 1.4}; // トップになるための係数
-double K_bottom[2] = {1.35, 1.35}; // 最下位にならないための係数
-double C_top[2] = {1.3, 1.3}; // トップになるための定数
-double C_bottom[2] = {1.2, 1.2}; // 最下位にならないための定数
-double minimum_rate = 0.1; // 合格最低点/兵力の合計値
-
-void keisu(double* p, double x, double y) {
-  *p = alpha * x + beta * y;
-}
-
-void senryaku_hansu() {
-  keisu(&K_top[0], 1.35, 1.4);
-  keisu(&K_top[1], 1.35, 1.4);
-  keisu(&K_bottom[0], 1.35, 1.3);
-  keisu(&K_bottom[1], 1.35, 1.3);
-  keisu(&C_top[0], 1, 1.3);
-  keisu(&C_top[1], 1, 1.3);
-  keisu(&C_bottom[0], 0.5, 1.2);
-  keisu(&C_bottom[1], 0.5, 1.2);
-  keisu(&minimum_rate, 0.25, 0.1);  
-}
+double K_top[2]; // トップになるための係数
+double K_bottom[2]; // 最下位にならないための係数
+double C_top[2]; // トップになるための定数
+double C_bottom[2]; // 最下位にならないための定数
+double minimum_rate; // 合格最低点/兵力の合計値
 
 // ターンでの変数
 int turn; // 現在のターン
@@ -62,10 +45,71 @@ int L[noonpeople]; // 出力
 bool voted_tops = false; // そのターンに「取りに行く領主」に投票したか
 bool voted_bottoms = false; // そのターンに「落とさない領主」に投票したか
 
+// 5ターン目終了時のみ点数計算
+double points[P];
+const double epsilon = 0.00001;
+
+void getpoint() {
+  fill(points, points+P, 0);
+  for (int i=0; i<N; i++) {
+    int max_v = -1;
+    int min_v = 10000;
+    for (int j=0; j<P; j++) {
+      if (max_v < B[i][j]) max_v = B[i][j];
+      if (min_v > B[i][j]) min_v = B[i][j];
+    }
+    int max_p = 0;
+    int min_p = 0;
+    for (int j=0; j<P; j++) {
+      if (max_v == B[i][j]) max_p++;
+      if (min_v == B[i][j]) min_p++;
+    }
+    double max_gp = ((double)A[i])/max_p;
+    double min_gp = ((double)A[i])/min_p;
+    for (int j=0; j<P; j++) {
+      if (max_v == B[i][j]) points[j] += max_gp;
+      if (min_v == B[i][j]) points[j] -= min_gp;
+    }    
+  }
+  /*
+  for (int j=0; j<P; j++) {
+    cerr << points[j] << " ";
+  }
+  cerr << endl;
+  */
+}
+
+bool isnowtop() {
+  getpoint();
+  for (int i=1; i<P; i++) {
+    if (points[0] + epsilon < points[i]) return false;
+  }
+  return true;
+}
+
+// 係数の調整
+void keisu(double* p, double x, double y) {
+  *p = alpha * x + beta * y;
+}
+
+void senryaku_hensu(int i) {
+  if (i == 1) {
+    if (!(isnowtop())) {
+      ai_num = ai_last;
+    }
+  }
+  alpha = 1 - ai_num/10;
+  beta = 1 - alpha;
+  keisu(&K_top[i], 1.35, 1.4);
+  keisu(&K_bottom[i], 1.35, 1.3);
+  keisu(&C_top[i], 1, 1.3);
+  keisu(&C_bottom[i], 0.5, 1.2);
+  keisu(&minimum_rate, 0.25, 0.1);  
+}
+
+
+// 初期化・入力関連
 void first_init() {
-  // 係数の設定
-  senryaku_hansu();
-  // 初期化・入力
   int x;
   cin >> x;
   cin >> x;
@@ -150,8 +194,15 @@ void turn_init() {
       W[i] += w;
     }
   }
+  // 係数の設定
+  if (turn == 1) {
+    senryaku_hensu(0);
+  } else if (turn == 6) {
+    senryaku_hensu(1);
+  }
 }
 
+// 判断基準の関数たち
 int expected_votes(int lord, bool istop, int daimyo) {
   int m = B[lord][daimyo];
   double K = K_top[0];
@@ -219,6 +270,7 @@ int score(int x, int y) {
   return ret;
 }
 
+// 戦略の決定と実行
 void determine_priority() {
   determine_minimum_score();
   int max_waste = -100000;
@@ -352,6 +404,7 @@ void determine_L() {
   }
 }
 
+// 出力
 void turn_output() {
   if (turn >= 2) determine_priority();
   determine_L();
