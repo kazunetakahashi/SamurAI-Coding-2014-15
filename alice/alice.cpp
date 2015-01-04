@@ -12,14 +12,6 @@ using namespace std;
 bool debug = false;
 bool debug_time = false;
 
-// randomはメルセンヌ・ツイスターで作る
-random_device rd;
-mt19937 mt(rd());
-
-int randmod(int m) {
-  return mt()%m;
-}
-
 // 大域変数・定数
 const int T = 9; // 全ターン数
 const int P = 4; // プレイヤー(大名)数
@@ -46,7 +38,7 @@ int people; // 出力数
 int L[noonpeople]; // 出力
 
 // ランダムで方針を決定するためのもの
-const int RD_turn[10] = {0, 0, 7500, 8500, 500, 5000,
+const int RD_turn[10] = {0, 5000, 7500, 8500, 500, 5000,
                          3500, 4000, 500, 5000}; // RD = RD_turn[turn];
 const int RD_M = 10000;
 int RD;
@@ -69,6 +61,53 @@ int L_prep[9];
 double points_zenhan[P];
 const double epsilon = 0.00001;
 
+// randomはメルセンヌ・ツイスターで作る
+random_device rd;
+mt19937 mt(rd());
+int RS[N][P];
+int RS_sum[P];
+
+// 過去の傾向から乱数を作る
+int randmod(int m) {
+  return mt()%m;
+}
+
+void make_random_sheet() {
+  for (int i=0; i<N; i++) {
+    for (int j=1; j<P; j++) {
+      if (turn == 1) {
+        RS[i][j] = 1;
+      } else {
+        RS[i][j] = B[i][j] + W[i];
+      }
+    }
+  }
+  for (int j=1; j<P; j++) {
+    for (int i=1; i<N; i++) {
+      RS[i][j] += RS[i-1][j];
+    }
+    RS_sum[j] = RS[N-1][j];
+  }
+  if (debug) {
+    for (int j=1; j<P; j++) {
+      cerr << "Player " << j << ": ";
+      for (int i=0; i<N; i++) {
+        cerr << RS[i][j] << " ";
+      }
+      cerr << endl;
+    }
+  }
+}
+
+int randplay(int player) {
+  int x = randmod(RS_sum[player]);
+  for (int i=0; i<N; i++) {
+    if (RS[i][player] > x) return i;
+  }
+  return 0;
+}
+
+// 点数計算
 void getpoint(int expect[N][P], double points[P]) {
   for (int i=0; i<N; i++) {
     int max_v = -1;
@@ -133,6 +172,7 @@ void determine_points_zenhan() { // 前半のポイントを計算する。
   } else { // 前半3・4位 (実は2位も同じ計算式)
     minimum_score = temp_score[0] + temp_score[1] - points_zenhan[0];
   }
+  minimum_score = max(total_score * minimum_rate, minimum_score + epsilon);
 }
 
 // 初期化・入力関連
@@ -145,19 +185,6 @@ void prep_init() {
   }
   // points_zenhan[0]だけは初期化する。
   points_zenhan[0] = 0;
-  // これからのことは全部ランダムで割り振る。
-  // いつやってもいいので、冒頭にやっておく。
-  // ルール上最初の待ち時間は5秒、各ターンの待ち時間は1秒。
-  for (int t=1; t<=T; t++) {
-    for (int l=0; l<RD_M; l++) {
-      for (int j=1; j<P; j++) {
-        for (int k=0; k<remain_votes[t]; k++) {
-          int i = randmod(N);
-          random_votes[t][l][i][j]++;
-        }
-      }
-    }
-  }
 }
 
 void first_init() {
@@ -219,6 +246,7 @@ void turn_init() {
     }
   }
   RD = RD_turn[turn];
+  make_random_sheet();
 }
 
 // 相手の投票数をランダムで求める
@@ -228,10 +256,10 @@ void random_write(int t) {
   for (int i=0; i<N; i++) {
     random_votes[turn][t][i][0] = R[i];
     for (int j=1; j<P; j++) {
-      random_votes[turn][t][i][j] += B[i][j];
+      random_votes[turn][t][i][j] = B[i][j];
     }
   }  
-  // 夜の交渉回数をランダムで割り振る
+  // 夜の交渉回数を完全ランダムで割り振る
   int WR[N];
   for (int i=0; i<N; i++) {
     WR[i] = W[i];
@@ -249,6 +277,22 @@ void random_write(int t) {
       }
     }
   }
+  // 未来の交渉回数を過去を参考にしたランダムで割り振る
+  for (int j=1; j<P; j++) {
+    for (int k=0; k<remain_votes[turn]; k++) {
+      int i = randplay(j);
+      random_votes[turn][t][i][j]++;
+    }
+  }
+  /*
+  cerr << "t = " << t << endl;
+  for (int j=1; j<P; j++) {
+    for (int i=0; i<N; i++) {
+      cerr << random_votes[turn][t][i][j] << " ";
+    }
+    cerr << endl;
+  }
+  */
 }
 
 void random_first_third(int t) {
@@ -460,11 +504,7 @@ void depth() {
 
 // 実行
 void determine_L() {
-  if (turn == 1) {
-    for (int i=0; i<5; i++) {
-      L[i] = priority[i];
-    }
-  } else if (turn == 2 || turn == 3 || turn == 6 || turn == 7) {
+  if (turn == 1 || turn == 2 || turn == 3 || turn == 6 || turn == 7) {
     determine_priority();
     int now_c = 0;
     int now_p = 0;
