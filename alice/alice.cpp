@@ -46,7 +46,7 @@ int L[noonpeople]; // 出力
 
 // ランダムで方針を決定するためのもの
 const int RD_turn[10] = {0, 0, 7500, 8500, 500, 5000,
-                         6000, 7000, 500, 5000}; // RD
+                         3500, 4000, 500, 5000}; // RD
 const int RD_M = 10000;
 int RD;
 int random_votes[T+1][RD_M][N][P];
@@ -562,12 +562,14 @@ int main() {
   // ターン情報
   for (int t=1; t<=T; t++) {
     turn_init();
-    auto startTime = chrono::system_clock::now();
+    // auto startTime = chrono::system_clock::now();
     turn_output();
+    /*
     auto endTime = chrono::system_clock::now();
     auto timeSpan = endTime - startTime;
     cerr << "unknown: "
          << chrono::duration_cast<chrono::milliseconds>(timeSpan).count() * 2.5
          << endl;
+    */
   }
 }
