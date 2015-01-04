@@ -106,7 +106,7 @@ bool isnowtop(int expect[N][P]) {
   for (int i=1; i<P; i++) {
     if (t_points[0] + epsilon < t_points[i]) return false;
   }
-  return true;
+  return (t_points[0] > minimum_score + points_zenhan[0]);
 }
 
 void determine_points_zenhan() { // 前半のポイントを計算する。
@@ -378,7 +378,7 @@ void determine_priority() {
   }
   sort(temp_priority, temp_priority+N);
   if (debug) {
-    cerr << "max_win: " << max_win << endl;
+    cerr << "max_win: " << max_win << " of " << RD_turn[turn] << endl;
     cerr << "priority: ";
   }
   for (int i=0; i<N; i++) {
@@ -450,7 +450,7 @@ void depth() {
     free(p);
   }
   if (debug) {
-    cerr << "max_win: " << max_win << endl;
+    cerr << "max_win: " << max_win << " of " << RD_turn[turn] << endl;
     for (int i=0; i<remain_votes[turn]; i++) {
       cerr << L_prep[i] << " ";
     }
