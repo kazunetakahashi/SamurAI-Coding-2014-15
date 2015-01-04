@@ -10,6 +10,7 @@ using namespace std;
 
 // デバッグ用
 bool debug = false;
+bool debug_time = false;
 
 // randomはメルセンヌ・ツイスターで作る
 random_device rd;
@@ -46,7 +47,7 @@ int L[noonpeople]; // 出力
 
 // ランダムで方針を決定するためのもの
 const int RD_turn[10] = {0, 0, 7500, 8500, 500, 5000,
-                         3500, 4000, 500, 5000}; // RD
+                         3500, 4000, 500, 5000}; // RD = RD_turn[turn];
 const int RD_M = 10000;
 int RD;
 int random_votes[T+1][RD_M][N][P];
@@ -56,6 +57,8 @@ int rv_n_first_max[T+1][N];
 int rv_n_third_max[T+1][N];
 int rv_n_first_min[T+1][N];
 int rv_n_third_min[T+1][N];
+const double minimum_rate = 0.05; // 合格最低ライン
+double minimum_score; // 合格最低点
 
 // 深さ優先探査で総当りするためのもの
 typedef tuple<int, int*> future;
@@ -116,6 +119,20 @@ void determine_points_zenhan() { // 前半のポイントを計算する。
     }
     cerr << endl;
   }
+  // minimum_scoreの更新
+  double temp_score[P];
+  for (int j=0; j<P; j++) {
+    temp_score[j] = points_zenhan[j];
+  }
+  sort(temp_score, temp_score+P);
+  reverse(temp_score, temp_score+P);
+  if (temp_score[0] - epsilon < points_zenhan[0]) { // 前半1位
+    minimum_score = temp_score[1];
+  } else if (temp_score[1] - epsilon < points_zenhan[0]) { // 前半2位
+    minimum_score = temp_score[0];
+  } else { // 前半3・4位 (実は2位も同じ計算式)
+    minimum_score = temp_score[0] + temp_score[1] - points_zenhan[0];
+  }
 }
 
 // 初期化・入力関連
@@ -132,7 +149,7 @@ void prep_init() {
   // いつやってもいいので、冒頭にやっておく。
   // ルール上最初の待ち時間は5秒、各ターンの待ち時間は1秒。
   for (int t=1; t<=T; t++) {
-    for (int l=0; l<RD_turn[t]; l++) {
+    for (int l=0; l<RD_M; l++) {
       for (int j=1; j<P; j++) {
         for (int k=0; k<remain_votes[t]; k++) {
           int i = randmod(N);
@@ -168,6 +185,8 @@ void first_init() {
       priority[j++] = i;
     }
   }
+  // minimum_scoreの計算
+  minimum_score = minimum_rate * total_score;
 }
 
 void turn_init() {
@@ -305,7 +324,6 @@ void determine_priority() {
   for (int x=0; x< (1 << N); x++) {
     for (int y=0; y< (1 << N); y++) {
       if (isvalid(x, y) && score(x, y) > -1 * points_zenhan[0]) {
-        // 点数で枝刈り。合計0点以下の戦略では勝てる見込みはない。
         int win = 0;
         for (int t=0; t<RD; t++) {
           // 残りターン数で実現可能か
@@ -562,14 +580,16 @@ int main() {
   // ターン情報
   for (int t=1; t<=T; t++) {
     turn_init();
-    // auto startTime = chrono::system_clock::now();
-    turn_output();
-    /*
-    auto endTime = chrono::system_clock::now();
-    auto timeSpan = endTime - startTime;
-    cerr << "unknown: "
-         << chrono::duration_cast<chrono::milliseconds>(timeSpan).count() * 2.5
-         << endl;
-    */
+    if (debug_time) {
+      auto startTime = chrono::system_clock::now();
+      turn_output();
+      auto endTime = chrono::system_clock::now();
+      auto timeSpan = endTime - startTime;
+      cerr << "unknown: "
+           << chrono::duration_cast<chrono::milliseconds>(timeSpan).count() * 3
+           << endl;
+    } else {
+      turn_output();
+    }
   }
 }
