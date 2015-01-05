@@ -1,3 +1,4 @@
+0がalice_first。1が4、2が14。
 battle result of 0
 Player 0 : 32
 Player 1 : 13
