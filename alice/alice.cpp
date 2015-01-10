@@ -39,8 +39,8 @@ int people; // 出力数
 int L[noonpeople]; // 出力
 
 // ランダムで方針を決定するためのもの
-const int RD_turn[10] = {0, 20000, 30000, 30000, 2000, 20000,
-                         14000, 16000, 2000, 20000}; // RD = RD_turn[turn];
+const int RD_turn[10] = {0, 15000, 20000, 15000, 1200, 12000,
+                         10000, 12000, 1200, 12000}; // RD = RD_turn[turn];
 const int RD_M = 40000;
 int RD;
 int random_votes[T+1][RD_M][N][P];

@@ -1,1 +1,1 @@
-g++ -std=c++11 alice.cpp
+g++ -std=c++11 -Ofast alice.cpp
