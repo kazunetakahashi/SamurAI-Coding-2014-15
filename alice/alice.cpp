@@ -27,20 +27,21 @@ int priority[N];
 int x_now=0, y_now=0; // 現在の戦略
 int top_lord=0, bottom_lord=0; // 1位を取る領主、3位を取る領主
 int now_amari = 0;
+bool bug[P]; // 相手がendedになっているかどうかを判定
 
 // ターンでの変数
 int turn; // 現在のターン
 bool isnoon; // 昼か？
-int B[N][P]; // B[n][p] = プレイヤーpの領主nへの親密度
-int R[N]; // 自分の本当の投票数
+int B[T+1][N][P]; // B[turn][n][p] = プレイヤーpの領主nへの親密度
+int R[T+1][N]; // 自分の本当の投票数
 int W[N]; // 前の休日までの、明らかになっていない夜の交渉回数(自分を除く)
 int people; // 出力数
 int L[noonpeople]; // 出力
 
 // ランダムで方針を決定するためのもの
-const int RD_turn[10] = {0, 5000, 7500, 8500, 500, 5000,
-                         3500, 4000, 500, 5000}; // RD = RD_turn[turn];
-const int RD_M = 10000;
+const int RD_turn[10] = {0, 20000, 30000, 30000, 2000, 20000,
+                         14000, 16000, 2000, 20000}; // RD = RD_turn[turn];
+const int RD_M = 40000;
 int RD;
 int random_votes[T+1][RD_M][N][P];
 int rv_n_first[T+1][RD_M][N];
@@ -49,7 +50,7 @@ int rv_n_first_max[T+1][N];
 int rv_n_third_max[T+1][N];
 int rv_n_first_min[T+1][N];
 int rv_n_third_min[T+1][N];
-const double minimum_rate = 0.05; // 合格最低ライン
+const double minimum_rate = 0.1; // 合格最低ライン
 double minimum_score; // 合格最低点
 
 // 深さ優先探査で総当りするためのもの
@@ -74,22 +75,22 @@ int randmod(int m) {
 
 void make_random_sheet() {
   for (int i=0; i<N; i++) {
+    RS[i][0] = R[turn][i];
     for (int j=1; j<P; j++) {
-      if (turn == 1) {
-        RS[i][j] = 1;
-      } else {
-        RS[i][j] = B[i][j] + W[i];
-      }
+      RS[i][j] = B[turn][i][j] + W[i];
+      if (turn == 1 || turn == 2) {
+        RS[i][j] += 1;
+      } 
     }
   }
-  for (int j=1; j<P; j++) {
+  for (int j=0; j<P; j++) {
     for (int i=1; i<N; i++) {
       RS[i][j] += RS[i-1][j];
     }
     RS_sum[j] = RS[N-1][j];
   }
   if (debug) {
-    for (int j=1; j<P; j++) {
+    for (int j=0; j<P; j++) {
       cerr << "Player " << j << ": ";
       for (int i=0; i<N; i++) {
         cerr << RS[i][j] << " ";
@@ -150,7 +151,7 @@ bool isnowtop(int expect[N][P]) {
 
 void determine_points_zenhan() { // 前半のポイントを計算する。
   fill(points_zenhan, points_zenhan+P, 0);
-  getpoint(B, points_zenhan);
+  getpoint(B[turn], points_zenhan);
   if (debug) {
     cerr << "points ";
     for (int j=0; j<P; j++) {
@@ -185,6 +186,7 @@ void prep_init() {
   }
   // points_zenhan[0]だけは初期化する。
   points_zenhan[0] = 0;
+  fill(bug, bug+P, false);
 }
 
 void first_init() {
@@ -228,11 +230,11 @@ void turn_init() {
   }
   for (int i=0; i<N; i++) {
     for (int j=0; j<P; j++) {
-      cin >> B[i][j];
+      cin >> B[turn][i][j];
     }
   }
   for (int i=0; i<N; i++) {
-    cin >> R[i];
+    cin >> R[turn][i];
   }
   if (turn == 6) {
     fill(W, W+P, 0);
@@ -254,9 +256,9 @@ void turn_init() {
 void random_write(int t) {
   // 明らかになっているところ
   for (int i=0; i<N; i++) {
-    random_votes[turn][t][i][0] = R[i];
+    random_votes[turn][t][i][0] = R[turn][i];
     for (int j=1; j<P; j++) {
-      random_votes[turn][t][i][j] = B[i][j];
+      random_votes[turn][t][i][j] = B[turn][i][j];
     }
   }  
   // 夜の交渉回数を完全ランダムで割り振る
@@ -268,7 +270,7 @@ void random_write(int t) {
   for (int j=1; j<P; j++) {
     for (int k=0; k<done_night; k++) {
       while (true) {
-        int i = randmod(N);
+        int i = randplay(j);
         if (WR[i] > 0) {
           random_votes[turn][t][i][j] += 2;
           WR[i]--;
@@ -302,8 +304,8 @@ void random_first_third(int t) {
       temp[j-1] = random_votes[turn][t][i][j];
     }
     sort(temp, temp+P-1);
-    rv_n_first[turn][t][i] = max(temp[P-2] - R[i] + 1, 0);
-    rv_n_third[turn][t][i] = max(temp[0] - R[i] + 1, 0);
+    rv_n_first[turn][t][i] = max(temp[P-2] - R[turn][i] + 1, 0);
+    rv_n_third[turn][t][i] = max(temp[0] - R[turn][i] + 1, 0);
   }
 }
 
@@ -383,11 +385,11 @@ void determine_priority() {
           // これで勝てているか
           for (int i=0; i<N; i++) {          
             if ( ((x >> i) & 1) == 1 ) {
-              random_votes[turn][t][i][0] = R[i] + rv_n_first[turn][t][i];
+              random_votes[turn][t][i][0] = R[turn][i] + rv_n_first[turn][t][i];
             } else if ( ((y >> i) & 1) == 1 ) {
-              random_votes[turn][t][i][0] = R[i] + rv_n_third[turn][t][i];
+              random_votes[turn][t][i][0] = R[turn][i] + rv_n_third[turn][t][i];
             } else {
-              random_votes[turn][t][i][0] = R[i];
+              random_votes[turn][t][i][0] = R[turn][i];
             }
           }
           if (isnowtop(random_votes[turn][t])) {
@@ -442,7 +444,7 @@ int count_win(int* q) {
   int ans = 0;
   for (int t=0; t<RD; t++) {
     for (int i=0; i<N; i++) {
-      random_votes[turn][t][i][0] = R[i];
+      random_votes[turn][t][i][0] = R[turn][i];
     }
     for (int l=0; l<remain_votes[turn]; l++) {
       int i = q[l];
@@ -626,7 +628,7 @@ int main() {
       auto endTime = chrono::system_clock::now();
       auto timeSpan = endTime - startTime;
       cerr << "unknown: "
-           << chrono::duration_cast<chrono::milliseconds>(timeSpan).count() * 3
+           << chrono::duration_cast<chrono::milliseconds>(timeSpan).count()
            << endl;
     } else {
       turn_output();
