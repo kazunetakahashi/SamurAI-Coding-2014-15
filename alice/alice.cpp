@@ -9,7 +9,7 @@
 using namespace std;
 
 // デバッグ用
-bool debug = true;
+bool debug = false;
 bool debug_time = true;
 
 // 大域変数・定数
@@ -28,7 +28,7 @@ int priority[N];
 int x_now=0, y_now=0; // 現在の戦略
 int top_lord=0, bottom_lord=0; // 1位を取る領主、3位を取る領主
 int now_amari = 0;
-bool bug[P]; // 相手がendedになっているかどうかを判定
+bool bug[P]; // 相手が child process ended なっているかどうかを判定する。
 
 // ターンでの変数
 int turn; // 現在のターン
@@ -36,15 +36,18 @@ bool isnoon; // 昼か？
 int B[T+1][N][P]; // B[turn][n][p] = プレイヤーpの領主nへの親密度
 int R[T+1][N]; // 自分の本当の投票数
 int W[N]; // 前の休日までの、明らかになっていない夜の交渉回数(自分を除く)
+int W_turn[T+1][N]; // 控え
 int people; // 出力数
 int L[noonpeople]; // 出力
 
 // ランダムで方針を決定するためのもの
-const int RD_turn[10] = {0, 12000, 1500, 12000, 1500, 12000,
-                         1500, 12000, 1500, 12000}; // RD = RD_turn[turn];
+const int RD_turn[10] = {0, 12000, 1500, 12000, 1500, 3000,
+                         1500, 12000, 1500, 3000}; // RD = RD_turn[turn];
 const int RD_M = 40000;
 int RD;
 int random_votes[T+1][RD_M][N][P];
+int last_votes[T+1][RD_M][N][P]; // turn == 5 || turn == 9 のみ使用
+int player_votes[P][RD_M][N][P]; // random_votes + last_votes を基本的に入れる
 int rv_n_first[T+1][RD_M][N];
 int rv_n_third[T+1][RD_M][N];
 int rv_n_first_max[T+1][N];
@@ -77,13 +80,32 @@ int randmod(int m) {
 }
 
 void make_random_sheet() {
+  int done_night = remain_night[0] - remain_night[turn];
+  int bug_people = 0;
+  for (int j=1; j<P; j++) {
+    if (bug[j]) bug_people++;
+  }
+  int bug_zero = bug_people * done_night;
   for (int i=0; i<N; i++) {
     RS[i][0] = R[turn][i];
     for (int j=1; j<P; j++) {
-      RS[i][j] = B[turn][i][j] + W[i];
-      if (turn == 1 || turn == 2) {
-        RS[i][j] += 1;
-      } 
+      if (!bug[j]) {
+        RS[i][j] = B[turn][i][j] + W[i];
+        if (i == 0) {
+          RS[i][j] -= bug_zero;
+        }
+        if (turn == 1 || turn == 2) {
+          RS[i][j] += 1;
+        }
+      }
+    }
+  }
+  for (int j=1; j<P; j++) {
+    if (bug[j]) {
+      RS[0][j] = 1;
+      for (int i=1; i<N; i++) {
+        RS[i][j] = 0;
+      }
     }
   }
   for (int j=0; j<P; j++) {
@@ -178,7 +200,7 @@ void getpoint(int expect[N][P], double points[P]) {
 }
 
 bool isnowtop(int expect[N][P]) {
-  // トップかどうかを判定する。
+  // トップかどうかを判定する。余裕のない勝ち方は勝ちと判定しない。
   double t_points[P];
   if (turn <= 5) {
     fill(t_points, t_points+P, 0);
@@ -193,6 +215,25 @@ bool isnowtop(int expect[N][P]) {
   }
   return (t_points[0] > minimum_score + points_zenhan[0]);
 }
+
+bool isnowtop_other(int expect[N][P], int p) {
+  // Player p が トップかどうかを判定する。
+  double t_points[P];
+  if (turn <= 5) {
+    fill(t_points, t_points+P, 0);
+  } else {
+    for (int i=0; i<P; i++) {
+      t_points[i] = points_zenhan[i];
+    }
+  }
+  getpoint(expect, t_points);
+  for (int i=0; i<P; i++) {
+    if (i == p) continue;
+    if (t_points[p] + epsilon < t_points[i]) return false;
+  }
+  return true;
+}
+
 
 void determine_points_zenhan() { // 前半のポイントを計算する。
   fill(points_zenhan, points_zenhan+P, 0);
@@ -221,6 +262,35 @@ void determine_points_zenhan() { // 前半のポイントを計算する。
   minimum_score = max(total_score * minimum_rate, minimum_score + epsilon);
 }
 
+// child process ended 判定
+
+void ended() {
+  if (turn == 1 || turn == 6) return; // 1,6ターン目は判定しない
+  for (int p=1; p<P; p++) {
+    if (bug[p]) {
+      if ((!isnoon) && (B[turn][0][p] - B[turn-1][0][p] < 5)) {
+        bug[p] = false;
+      } else if (isnoon && (W_turn[turn][0] - W_turn[turn-1][0] < 2)) {
+        bug[p] = false;
+      }
+    } else if (turn == 2) { // bugか判定。bugが起こるなら1ターン目か2ターン目だろう。
+      if (B[turn][0][p] - B[turn-1][0][p] >= 5) {
+        bug[p] = true;
+      }
+    } else if (turn == 4) {
+      if (B[turn][0][p] - B[turn-1][0][p] >= 5 
+          && W_turn[turn-1][0] - W_turn[turn-2][0] >= 2) {
+        bug[p] = true;
+      }
+    }
+  }
+  if (debug) {
+    for (int p=1; p<P; p++) {
+      if (bug[p]) cerr << "Player " << p << " is ended." << endl;
+    }
+  }
+}
+
 // 初期化・入力関連
 void prep_init() {
   total_score = 0;
@@ -237,7 +307,20 @@ void prep_init() {
   depth_init();
   // points_zenhan[0]だけは初期化する。
   points_zenhan[0] = 0;
+  // 全員bugではない。
   fill(bug, bug+P, false);
+  // 今のうちに last_votes は初期化しておく
+  for (int x=0; x<=T; x++) {
+    if (x == 5 || x == 9) {
+      for (int t=0; t<RD_M; t++) {
+        for (int i=0; i<N; i++) {
+          for (int j=0; j<P; j++) {
+            last_votes[x][t][i][j] = 0;
+          }
+        }
+      }
+    }
+  }
 }
 
 void first_init() {
@@ -295,9 +378,13 @@ void turn_init() {
     for (int i=0; i<N; i++) {
       int w;
       cin >> w;
-      W[i] += w;
+      W[i] += w - (R[turn][i] - R[turn-1][i])%2;
     }
   }
+  for (int i=0; i<N; i++) {
+    W_turn[turn][i] = W[i];
+  }
+  ended();
   RD = RD_turn[turn];
   make_random_sheet();
 }
@@ -318,23 +405,41 @@ void random_write(int t) {
     WR[i] = W[i];
   }
   int done_night = remain_night[0] - remain_night[turn];
+  // bugになった人は2ターン目には死んでいる
   for (int j=1; j<P; j++) {
-    for (int k=0; k<done_night; k++) {
-      while (true) {
-        int i = randplay(j);
-        if (WR[i] > 0) {
-          random_votes[turn][t][i][j] += 2;
-          WR[i]--;
-          break;
+    if (bug[j]) {
+      WR[0] -= done_night;
+      random_votes[turn][t][0][j] += 2 * done_night;
+    }
+  }
+  for (int j=1; j<P; j++) {
+    if (!bug[j]) {
+      for (int k=0; k<done_night; k++) {
+        while (true) {
+          int i = randplay(j);
+          if (WR[i] > 0) {
+            random_votes[turn][t][i][j] += 2;
+            WR[i]--;
+            break;
+          }
         }
       }
     }
   }
   // 未来の交渉回数を過去を参考にしたランダムで割り振る
-  for (int j=1; j<P; j++) {
-    for (int k=0; k<remain_votes[turn]; k++) {
-      int i = randplay(j);
-      random_votes[turn][t][i][j]++;
+  if (turn == 5 || turn == 9) { // turn == 5 || turn == 9 は別枠に保存
+    for (int j=0; j<P; j++) {
+      for (int k=0; k<remain_votes[turn]; k++) {
+        int i = randplay(j);
+        last_votes[turn][t][i][j]++;
+      }
+    }
+  } else {
+    for (int j=1; j<P; j++) {
+      for (int k=0; k<remain_votes[turn]; k++) {
+        int i = randplay(j);
+        random_votes[turn][t][i][j]++;
+      }
     }
   }
 }
@@ -591,6 +696,136 @@ void depth(int num) {
   }
 }
 
+void depth_last() {
+  int max_id[P]; // 各プレイヤーの最適戦略
+  int num = N;
+  int tot = conbi_total[expected_votes[turn]][num];
+  int max_win[P];
+  fill(max_win, max_win+P, -100);
+  int max_win_p = -100, max_win_r = -100;
+  int max_id_p, max_id_r;
+  for (int p=1; p<P; p++) {
+    if (bug[p]) {
+      max_id[p] = tot-1;
+      continue;
+    }
+    for (int t=0; t<RD; t++) {
+      for (int i=0; i<N; i++) {
+        for (int j=0; j<P; j++) {
+          if (p != j) {
+            player_votes[p][t][i][j] 
+              = last_votes[turn][t][i][j] + random_votes[turn][t][i][j];
+          }
+        }
+      }
+    }
+    for (int x=0; x<tot; x++) {
+      int win = 0;
+      for (int t=0; t<RD; t++) {
+        for (int i=0; i<N; i++) {
+          player_votes[p][t][i][p] = random_votes[turn][t][i][p];
+        }
+        for (int i=0; i<expected_votes[turn]; i++) {
+          player_votes[p][t][conbi[expected_votes[turn]][num][x][i]][p]++;
+        }
+        if (isnowtop_other(player_votes[p][t], p)) {
+          win++;
+        }
+      }
+      if (max_win[p] < win) {
+        max_win[p] = win;
+        max_id[p] = x;
+      }
+    }
+  }
+  if (debug) {
+    cerr << "The best strategy" << endl;
+    for (int p=1; p<P; p++) {
+      cerr << "Player " << p << " :";
+      for (int i=0; i<expected_votes[turn]; i++) {
+        cerr << conbi[expected_votes[turn]][num][max_id[p]][i] << " ";
+      }
+      cerr << "wins " << max_win[p] << endl;
+    }
+  }
+  for (int t=0; t<RD; t++) {
+    for (int i=0; i<N; i++) {
+      for (int j=1; j<P; j++) {
+        player_votes[0][t][i][j] = random_votes[turn][t][i][j];
+      }
+    }
+    for (int j=1; j<P; j++) {
+      for (int i=0; i<expected_votes[turn]; i++) {
+        player_votes[0][t][conbi[expected_votes[turn]][num][max_id[j]][i]][j]++;
+      }
+    }
+    for (int i=0; i<N; i++) {
+      for (int j=1; j<P; j++) {
+        random_votes[turn][t][i][j] += last_votes[turn][t][i][j];
+      }
+    }
+  }
+  for (int x=0; x<tot; x++) {
+    int win_p = 0;
+    int win_r = 0;
+    for (int t=0; t<RD; t++) {
+      for (int i=0; i<N; i++) {
+        player_votes[0][t][i][0] = R[turn][i];
+      }
+      for (int i=0; i<expected_votes[turn]; i++) {
+        player_votes[0][t][conbi[expected_votes[turn]][num][x][i]][0]++;
+      }
+      if (isnowtop(player_votes[0][t])) {
+        win_p++;
+      }
+      for (int i=0; i<N; i++) {
+        random_votes[turn][t][i][0] = player_votes[0][t][i][0];
+      }
+      if (isnowtop(random_votes[turn][t])) {
+        win_r++;
+      }
+    }
+    int win = win_p + win_r;
+    if (max_win[0] < win) {
+      max_win[0] = win;
+      max_id[0] = x;
+    }
+    if (max_win_r < win_r) {
+      max_win_r = win_r;
+      max_id_r = x;
+    }
+    if (max_win_p < win_p) {
+      max_win_p = win_p;
+      max_id_p = x;
+    }
+  }
+  for (int i=0; i<expected_votes[turn]; i++) {
+    L_prep[i] = conbi[expected_votes[turn]][num][max_id[0]][i];
+  }
+  if (debug) {
+    cerr << "max_win: " << max_win[0] << " of " << RD_turn[turn]*2 << endl;
+    cerr << "L_prep: ";
+    for (int i=0; i<expected_votes[turn]; i++) {
+      cerr << L_prep[i] << " ";
+    }
+    cerr << endl;
+    // max_win_r
+    cerr << "max_win_r: " << max_win_r << " of " << RD_turn[turn] << endl;
+    cerr << "Used conbi: ";
+    for (int i=0; i<expected_votes[turn]; i++) {
+      cerr << conbi[expected_votes[turn]][num][max_id_r][i] << " ";
+    }
+    cerr << endl;
+    // max_win_p
+    cerr << "max_win_p: " << max_win_p << " of " << RD_turn[turn] << endl;
+    cerr << "Used conbi: ";
+    for (int i=0; i<expected_votes[turn]; i++) {
+      cerr << conbi[expected_votes[turn]][num][max_id_p][i] << " ";
+    }
+    cerr << endl;
+  }
+}
+
 // 実行
 void determine_L() {
   if (turn == 1 || turn == 2 || turn == 3 || turn == 6 || turn == 7) {
@@ -599,7 +834,11 @@ void determine_L() {
     for (int t=0; t<RD; t++) {
       random_write(t);
     }
-    depth(N);
+    if (turn == 4 || turn == 8) {
+      depth(N);
+    } else {
+      depth_last();
+    }
   }
   if (!isnoon) {
     int temp[N];
@@ -657,9 +896,6 @@ void turn_output() {
     cout << L[i];
     if (i != people-1) {
       cout << " ";
-    }
-    if(!isnoon) {
-      W[L[i]]--;
     }
   }
   cout << endl;
