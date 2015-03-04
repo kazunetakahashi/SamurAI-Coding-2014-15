@@ -10,7 +10,7 @@ using namespace std;
 
 // デバッグ用
 bool debug = false;
-bool debug_time = true;
+bool debug_time = false;
 
 // 大域変数・定数
 const int T = 9; // 全ターン数
@@ -61,7 +61,7 @@ double minimum_score; // 合格最低点
 typedef tuple<int, int*> future;
 stack<future> St;
 int L_prep[9];
-int conbi[10][7][6000][9]; // conbi[depth][num][id]
+int conbi[10][7][6000][9]; // conbi[turn][depth][num][id]
 int conbi_total[10][7]; // idの数
 
 // 点数計算用
@@ -785,7 +785,7 @@ void depth_last() {
         win_r++;
       }
     }
-    int win = win_p + win_r;
+    int win = win_p;
     if (max_win[0] < win) {
       max_win[0] = win;
       max_id[0] = x;
