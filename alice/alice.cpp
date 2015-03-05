@@ -9,8 +9,8 @@
 using namespace std;
 
 // デバッグ用
-bool debug = false;
-bool debug_time = false;
+bool debug = true;
+bool debug_time = true;
 
 // 大域変数・定数
 const int T = 9; // 全ターン数
@@ -41,8 +41,8 @@ int people; // 出力数
 int L[noonpeople]; // 出力
 
 // ランダムで方針を決定するためのもの
-const int RD_turn[10] = {0, 12000, 1500, 12000, 1500, 3000,
-                         1500, 12000, 1500, 3000}; // RD = RD_turn[turn];
+const int RD_turn[10] = {0, 12000, 1500, 12000, 1500, 4000,
+                         1500, 12000, 1500, 4000}; // RD = RD_turn[turn];
 const int RD_M = 40000;
 int RD;
 int random_votes[T+1][RD_M][N][P];
@@ -94,8 +94,10 @@ void make_random_sheet() {
         if (i == 0) {
           RS[i][j] -= bug_zero;
         }
-        if (turn == 1 || turn == 2) {
-          RS[i][j] += 1;
+        if (turn == 1 || turn == 2 || turn == 3) {
+          RS[i][j] *= 2;
+          RS[i][j] -= W[i];
+          RS[i][j] += A[i] - 3;
         }
       }
     }
@@ -702,8 +704,6 @@ void depth_last() {
   int tot = conbi_total[expected_votes[turn]][num];
   int max_win[P];
   fill(max_win, max_win+P, -100);
-  int max_win_p = -100, max_win_r = -100;
-  int max_id_p, max_id_r;
   for (int p=1; p<P; p++) {
     if (bug[p]) {
       max_id[p] = tot-1;
@@ -759,15 +759,9 @@ void depth_last() {
         player_votes[0][t][conbi[expected_votes[turn]][num][max_id[j]][i]][j]++;
       }
     }
-    for (int i=0; i<N; i++) {
-      for (int j=1; j<P; j++) {
-        random_votes[turn][t][i][j] += last_votes[turn][t][i][j];
-      }
-    }
   }
   for (int x=0; x<tot; x++) {
     int win_p = 0;
-    int win_r = 0;
     for (int t=0; t<RD; t++) {
       for (int i=0; i<N; i++) {
         player_votes[0][t][i][0] = R[turn][i];
@@ -778,25 +772,11 @@ void depth_last() {
       if (isnowtop(player_votes[0][t])) {
         win_p++;
       }
-      for (int i=0; i<N; i++) {
-        random_votes[turn][t][i][0] = player_votes[0][t][i][0];
-      }
-      if (isnowtop(random_votes[turn][t])) {
-        win_r++;
-      }
     }
     int win = win_p;
     if (max_win[0] < win) {
       max_win[0] = win;
       max_id[0] = x;
-    }
-    if (max_win_r < win_r) {
-      max_win_r = win_r;
-      max_id_r = x;
-    }
-    if (max_win_p < win_p) {
-      max_win_p = win_p;
-      max_id_p = x;
     }
   }
   for (int i=0; i<expected_votes[turn]; i++) {
@@ -807,20 +787,6 @@ void depth_last() {
     cerr << "L_prep: ";
     for (int i=0; i<expected_votes[turn]; i++) {
       cerr << L_prep[i] << " ";
-    }
-    cerr << endl;
-    // max_win_r
-    cerr << "max_win_r: " << max_win_r << " of " << RD_turn[turn] << endl;
-    cerr << "Used conbi: ";
-    for (int i=0; i<expected_votes[turn]; i++) {
-      cerr << conbi[expected_votes[turn]][num][max_id_r][i] << " ";
-    }
-    cerr << endl;
-    // max_win_p
-    cerr << "max_win_p: " << max_win_p << " of " << RD_turn[turn] << endl;
-    cerr << "Used conbi: ";
-    for (int i=0; i<expected_votes[turn]; i++) {
-      cerr << conbi[expected_votes[turn]][num][max_id_p][i] << " ";
     }
     cerr << endl;
   }
