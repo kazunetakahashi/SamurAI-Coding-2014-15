@@ -94,10 +94,8 @@ void make_random_sheet() {
         if (i == 0) {
           RS[i][j] -= bug_zero;
         }
-        if (turn == 1 || turn == 2 || turn == 3) {
-          RS[i][j] *= 2;
-          RS[i][j] -= W[i];
-          RS[i][j] += A[i];
+        if (turn == 1 || turn == 2) {
+          RS[i][j] += A[i]/turn;
         }
       }
     }
