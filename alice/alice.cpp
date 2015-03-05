@@ -97,7 +97,7 @@ void make_random_sheet() {
         if (turn == 1 || turn == 2 || turn == 3) {
           RS[i][j] *= 2;
           RS[i][j] -= W[i];
-          RS[i][j] += A[i] - 2;
+          RS[i][j] += A[i];
         }
       }
     }
