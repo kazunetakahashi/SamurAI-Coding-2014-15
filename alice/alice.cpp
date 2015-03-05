@@ -9,8 +9,8 @@
 using namespace std;
 
 // デバッグ用
-bool debug = true;
-bool debug_time = true;
+bool debug = false;
+bool debug_time = false;
 
 // 大域変数・定数
 const int T = 9; // 全ターン数
@@ -97,7 +97,7 @@ void make_random_sheet() {
         if (turn == 1 || turn == 2 || turn == 3) {
           RS[i][j] *= 2;
           RS[i][j] -= W[i];
-          RS[i][j] += A[i] - 3;
+          RS[i][j] += A[i] - 2;
         }
       }
     }
@@ -783,7 +783,7 @@ void depth_last() {
     L_prep[i] = conbi[expected_votes[turn]][num][max_id[0]][i];
   }
   if (debug) {
-    cerr << "max_win: " << max_win[0] << " of " << RD_turn[turn]*2 << endl;
+    cerr << "max_win: " << max_win[0] << " of " << RD_turn[turn] << endl;
     cerr << "L_prep: ";
     for (int i=0; i<expected_votes[turn]; i++) {
       cerr << L_prep[i] << " ";
