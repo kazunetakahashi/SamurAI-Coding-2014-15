@@ -792,6 +792,12 @@ void depth_last() {
 
 // 実行
 void determine_L() {
+  if (turn == 1) {
+    for (int i=0; i<people; i++) {
+      L[i] = priority[i];
+    }
+    return;
+  }
   if (turn == 1 || turn == 2 || turn == 3 || turn == 6 || turn == 7) {
     determine_priority();
   } else { // turn == 4 || turn == 5 || turn == 8 || turn == 9
