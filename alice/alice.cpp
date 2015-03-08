@@ -6,11 +6,13 @@
 #include <stack>
 #include <cstdlib>
 #include <chrono>
+#include <vector>
+#include <tuple>
 using namespace std;
 
 // デバッグ用
 bool debug = false;
-bool debug_time = false;
+bool debug_time = true;
 
 // 大域変数・定数
 const int T = 9; // 全ターン数
@@ -24,9 +26,7 @@ const int noonpeople = 5;
 const int nightpeople = 2;
 int A[N]; // 領主の兵力
 int total_score; // 兵力の合計値
-int priority[N];
-int x_now=0, y_now=0; // 現在の戦略
-int top_lord=0, bottom_lord=0; // 1位を取る領主、3位を取る領主
+const int strategy[10] = {3, 3, 3, 3, 3, 3, 3, 3, 3, 3}; // 天秤にかける戦略数
 int now_amari = 0;
 bool bug[P]; // 相手が child process ended なっているかどうかを判定する。
 
@@ -332,22 +332,6 @@ void first_init() {
     cin >> A[i];
     total_score += A[i];
   }
-  // 1ターン目投票用priorityの確定
-  int min_score = 1000;
-  for (int i=0; i<N; i++) {
-    if (min_score > A[i]) min_score = A[i];
-  }
-  for (int i=N-1; i>=0; i--) {
-    if (min_score == A[i]) {
-      priority[N-1] = i;
-    }
-  }
-  int j = 0;
-  for (int i=0; i<N; i++) {
-    if (i != priority[N-1]) {
-      priority[j++] = i;
-    }
-  }
   // minimum_scoreの計算
   minimum_score = minimum_rate * total_score;
 }
@@ -510,10 +494,11 @@ int score(int x, int y) {
 }
 
 void determine_priority() {
-  int max_x = x_now;
-  int max_y = y_now;
+  vector< tuple<int, int, int> > Vec; // win, x, y  
+  // int max_x = x_now;
+  // int max_y = y_now;
   random_sev();
-  int max_win = -100;
+  // int max_win = -100;
   for (int x=0; x< (1 << N); x++) {
     for (int y=0; y< (1 << N); y++) {
       if (isvalid(x, y) && score(x, y) > -1 * points_zenhan[0]) {
@@ -543,108 +528,182 @@ void determine_priority() {
             win++;
           }          
         }
-        // 「勝った回数」が最高なら記録
-        if (max_win < win) {
-          max_win = win;
-          max_x = x;
-          max_y = y;
+        // 「勝った回数」が正なら記録
+        if (win > 0) {
+          Vec.push_back(make_tuple(win, x, y));
         }
       }
     }
   }
-  // 採用された戦略を記録する。
-  x_now = max_x;
-  y_now = max_y;
-  pair<int, int> temp_priority[N];
-  top_lord = 0;
-  bottom_lord = 0;
-  for (int i=0; i<N; i++) {
-    if ( (x_now >> i) & 1 ) {
-      temp_priority[i] = make_pair(0, i);
-      top_lord++;
-    } else if ( (y_now >> i) & 1 ) {
-      temp_priority[i] = make_pair(1, i);
-      bottom_lord++;
-    } else {
-      temp_priority[i] = make_pair(2, i);
+  sort(Vec.begin(), Vec.end());
+  reverse(Vec.begin(), Vec.end());
+  int st_num = min(strategy[turn], (int)Vec.size());
+  if (debug) {
+    cerr << "Rank of Strategies" << endl;
+    for (int s=0; s<st_num; s++) {
+      int win = get<0>(Vec[s]);
+      int x_now = get<1>(Vec[s]);
+      int y_now = get<2>(Vec[s]);
+      pair<int, int> temp_priority[N];
+      int top_lord = 0;
+      int bottom_lord = 0;
+      for (int i=0; i<N; i++) {
+        if ( (x_now >> i) & 1 ) {
+          temp_priority[i] = make_pair(0, i);
+          top_lord++;
+        } else if ( (y_now >> i) & 1 ) {
+          temp_priority[i] = make_pair(1, i);
+          bottom_lord++;
+        } else {
+          temp_priority[i] = make_pair(2, i);
+        }
+      }
+      sort(temp_priority, temp_priority+N);
+      cerr << "no. " << s
+           <<  " win: " << win << " of " << RD_turn[turn]
+           << " priority: ";
+      for (int i=0; i<N; i++) {
+        cerr << temp_priority[i].second << " ";
+      }
+      cerr << " top: " << top_lord
+           << " bottom: " << bottom_lord << endl;
     }
   }
-  sort(temp_priority, temp_priority+N);
-  if (debug) {
-    cerr << "max_win: " << max_win << " of " << RD_turn[turn] << endl;
-    cerr << "priority: ";
-  }
-  for (int i=0; i<N; i++) {
-    priority[i] = temp_priority[i].second;
-    if (debug) cerr << priority[i] << " ";
-  }
-  if (debug) {
-    cerr << endl;
-    cerr << "top_lord: " << top_lord << endl;
-    cerr << "bottom_lord: " << bottom_lord << endl;
-  }
+  int RD_D = ((st_num == 0) ? RD : (RD/st_num));
   // ここから先は、L_prepを求める。
-  int tlord = top_lord+bottom_lord;
-  int conbi_t = conbi_total[expected_votes[turn]][tlord];
-  max_win = -100;
-  int max_c = 0;
+  vector< tuple<int, int> > L_vec; // win, c
+  int conbi_t = conbi_total[expected_votes[turn]][N];
   for (int c=0; c<conbi_t; c++) {
     int win = 0;
     int tvotes[N];
     fill(tvotes, tvotes+N, 0);
     for (int i=0; i<expected_votes[turn]; i++) {
-      tvotes[priority[conbi[expected_votes[turn]][tlord][c][i]]]++;
+      tvotes[conbi[expected_votes[turn]][N][c][i]]++;
     }
-    for (int t=0; t<RD; t++) {
-      // 残りターン数で実現可能か
-      int need_votes = 0;
-      int need_v[N];
-      fill(need_v, need_v+N, 0);
+    for (int s=0; s<st_num; s++) {
+      int x_now = get<1>(Vec[s]);
+      int y_now = get<2>(Vec[s]);
+      // 余計な投票をしていないか
+      bool is_there_yokei = false;
       for (int i=0; i<N; i++) {
-        if ( ((x_now >> i) & 1) == 1 ) {
-          need_v[i] = max(rv_n_first[turn][t][i] - tvotes[i], 0) + tvotes[i];
-          need_votes += need_v[i];
-        } else if ( ((y_now >> i) & 1) == 1 ) {
-          need_v[i] = max(rv_n_third[turn][t][i] - tvotes[i], 0) + tvotes[i];
-          need_votes += need_v[i];
+        if (tvotes[i] > 0 &&
+            ((x_now >> i) & 1) == 0 &&
+            ((y_now >> i) & 1) == 0) {
+          is_there_yokei = true;
+          break;
+        };
+      }
+      if (is_there_yokei) continue;
+      for (int t=0; t<RD_D; t++) {
+        // 残りターン数で実現可能か
+        int need_votes = 0;
+        int need_v[N];
+        fill(need_v, need_v+N, 0);
+        for (int i=0; i<N; i++) {
+          if ( ((x_now >> i) & 1) == 1 ) {
+            need_v[i] = max(rv_n_first[turn][t][i] - tvotes[i], 0) + tvotes[i];
+            need_votes += need_v[i];
+          } else if ( ((y_now >> i) & 1) == 1 ) {
+            need_v[i] = max(rv_n_third[turn][t][i] - tvotes[i], 0) + tvotes[i];
+            need_votes += need_v[i];
+          }
+        }
+        if (need_votes > remain_votes[turn]) continue;
+        // これで勝てているか
+        for (int i=0; i<N; i++) {          
+          if ( ((x_now >> i) & 1) == 1 ) {
+            random_votes[turn][t][i][0] = R[turn][i] + need_v[i];
+          } else if ( ((y_now >> i) & 1) == 1 ) {
+            random_votes[turn][t][i][0] = R[turn][i] + need_v[i];
+          } else {
+            random_votes[turn][t][i][0] = R[turn][i];
+          }
+        }
+        if (isnowtop(random_votes[turn][t])) {
+          win++;
         }
       }
-      if (need_votes > remain_votes[turn]) continue;
-      // これで勝てているか
-      for (int i=0; i<N; i++) {          
-        if ( ((x_now >> i) & 1) == 1 ) {
-          random_votes[turn][t][i][0] = R[turn][i] + need_v[i];
-        } else if ( ((y_now >> i) & 1) == 1 ) {
-          random_votes[turn][t][i][0] = R[turn][i] + need_v[i];
-        } else {
-          random_votes[turn][t][i][0] = R[turn][i];
-        }
-      }
-      if (isnowtop(random_votes[turn][t])) {
-        win++;
-      }
     }
-    // 「勝った回数」が最高なら記録
-    if (max_win < win) {
-      max_win = win;
-      max_c = c;
+    // 「勝った回数」が正なら記録
+    if (win > 0) {
+      L_vec.push_back(make_tuple(win, c));
     }
   }
-  for (int i=0; i<expected_votes[turn]; i++) {
-    L_prep[i] = priority[conbi[expected_votes[turn]][tlord][max_c][i]];
+  if (L_vec.empty()) {
+    L_vec.push_back(make_tuple(-100, 0));
   }
+  sort(L_vec.begin(), L_vec.end());
+  reverse(L_vec.begin(), L_vec.end());
   if (debug) {
-    cerr << "max_win: " << max_win << " of " << RD_turn[turn] << endl;
-    cerr << "L_prep: ";
-    for (int i=0; i<expected_votes[turn]; i++) {
-      cerr << L_prep[i] << " ";
+    cerr << "Rank of Combis" << endl;
+    int s_combi = min((int)L_vec.size(), 10);
+    for (int s=0; s<s_combi; s++) {
+      int win = get<0>(L_vec[s]);
+      int c = get<1>(L_vec[s]);
+      cerr << "no. " << s << " win: " << win
+           << " of " << RD_D * st_num << " conbi: ";
+      for (int i=0; i<expected_votes[turn]; i++) {
+        cerr << conbi[expected_votes[turn]][N][c][i] << " ";
+      }
+      cerr << endl;
     }
-    cerr << endl;
-    cerr << "Used conbi: ";
+  }
+  if (isnoon) {
+    int max_c = get<1>(L_vec[0]);
     for (int i=0; i<expected_votes[turn]; i++) {
-      cerr << conbi[expected_votes[turn]][tlord][max_c][i] << " ";
+      L_prep[i] = conbi[expected_votes[turn]][N][max_c][i];
     }
-    cerr << endl;
+  } else {
+    int saiyo_combi = min((int)L_vec.size(), 10);
+    int table_of_combi[10][9];
+    for (int s=0; s<saiyo_combi; s++) {
+      int c = get<1>(L_vec[s]);
+      for (int i=0; i<expected_votes[turn]; i++) {
+        table_of_combi[s][i] = conbi[expected_votes[turn]][N][c][i];
+      }
+    }
+    pair<int, int> L_pp[9]; // depth, num
+    for (int i=0; i<expected_votes[turn]; i++) {
+      L_pp[i].first = 0;
+      L_pp[i].second = table_of_combi[0][i];
+      for (int j=1; j<saiyo_combi; j++) {
+        for (int k=0; k<expected_votes[turn]; k++) {
+          if (L_pp[i].second == table_of_combi[j][k]) {
+            table_of_combi[j][k] = -1;
+            L_pp[i].first++;
+            goto table_of_combi_exit;
+          }
+        }
+        break;
+      table_of_combi_exit:
+        continue;
+      }
+    }
+    sort(L_pp, L_pp+expected_votes[turn]);
+    reverse(L_pp, L_pp+expected_votes[turn]);
+    if (debug) {
+      cerr << "depth: "; 
+      for (int i=0; i<expected_votes[turn]; i++) {
+        cerr << L_pp[i].first << " ";
+      }
+      cerr << endl;
+      cerr << "lord : "; 
+      for (int i=0; i<expected_votes[turn]; i++) {
+        cerr << L_pp[i].second << " ";
+      }
+      cerr << endl;
+    }
+    int ind_L_prep = 0;
+    int tokuhyo[N];
+    fill(tokuhyo, tokuhyo+N, 0);
+    for (int i=0; i<expected_votes[turn]; i++) {
+      tokuhyo[L_pp[i].second]++;
+      if (tokuhyo[L_pp[i].second] == 2) {
+        L_prep[ind_L_prep++] = L_pp[i].second;
+        tokuhyo[L_pp[i].second] = 0;
+        if (ind_L_prep == nightpeople) break;
+      }
+    }
   }
 }
 
@@ -657,7 +716,7 @@ int count_win(int* q) {
       random_votes[turn][t][i][0] = R[turn][i];
     }
     for (int l=0; l<expected_votes[turn]; l++) {
-      int i = priority[q[l]];
+      int i = q[l];
       random_votes[turn][t][i][0]++;
     }
     if (isnowtop(random_votes[turn][t])) {
@@ -679,7 +738,7 @@ void depth(int num) {
     }
   }
   for (int i=0; i<expected_votes[turn]; i++) {
-    L_prep[i] = priority[conbi[expected_votes[turn]][num][max_id][i]];
+    L_prep[i] = conbi[expected_votes[turn]][num][max_id][i];
   }
   if (debug) {
     cerr << "max_win: " << max_win << " of " << RD_turn[turn] << endl;
@@ -688,11 +747,47 @@ void depth(int num) {
       cerr << L_prep[i] << " ";
     }
     cerr << endl;
-    cerr << "Used conbi: ";
-    for (int i=0; i<expected_votes[turn]; i++) {
-      cerr << conbi[expected_votes[turn]][num][max_id][i] << " ";
+  }
+  // L_prepから2つ選び出す
+  int temp[N];
+  fill(temp, temp+N, 0);
+  for (int i=0; i<expected_votes[turn]; i++) {
+    temp[L_prep[i]]++; 
+  }
+  int min_of_max = 100;
+  int saiyo = 0;
+  bool saiyo_zorome = true;
+  for (int c=0; c<conbi_total[people][N]; c++) {
+    int temp_c[N];
+    for (int i=0; i<N; i++) {
+      temp_c[i] = temp[i];
+    }      
+    for (int i=0; i<people; i++) {
+      temp_c[conbi[people][N][c][i]] -= 2;
     }
-    cerr << endl;
+    bool votable = true;
+    for (int i=0; i<N; i++) {
+      if (temp_c[i] < 0) votable = false;
+    }
+    if (!votable) continue;
+    int max = -100;
+    for (int i=0; i<N; i++) {
+      if (max < temp_c[i]) max = temp_c[i];
+    }
+    if (min_of_max > max) {
+      saiyo_zorome = (conbi[people][N][c][0] == conbi[people][N][c][1]);
+      min_of_max = max;
+      saiyo = c;
+    } else if (min_of_max == max) {
+      if (saiyo_zorome 
+          && (conbi[people][N][c][0] != conbi[people][N][c][1])) {
+        saiyo_zorome = false;
+        saiyo = c;
+      }
+    }
+  }
+  for (int i=0; i<people; i++) {
+    L_prep[i] = conbi[people][N][saiyo][i];
   }
 }
 
@@ -792,12 +887,12 @@ void depth_last() {
 
 // 実行
 void determine_L() {
-  if (turn == 1) {
+  /* if (turn == 1) {
     for (int i=0; i<people; i++) {
       L[i] = priority[i];
     }
     return;
-  }
+    } */
   if (turn == 1 || turn == 2 || turn == 3 || turn == 6 || turn == 7) {
     determine_priority();
   } else { // turn == 4 || turn == 5 || turn == 8 || turn == 9
@@ -810,51 +905,8 @@ void determine_L() {
       depth_last();
     }
   }
-  if (!isnoon) {
-    int temp[N];
-    fill(temp, temp+N, 0);
-    for (int i=0; i<expected_votes[turn]; i++) {
-      temp[L_prep[i]]++; 
-    }
-    int min_of_max = 100;
-    int saiyo = 0;
-    bool saiyo_zorome = true;
-    for (int c=0; c<conbi_total[people][N]; c++) {
-      int temp_c[N];
-      for (int i=0; i<N; i++) {
-        temp_c[i] = temp[i];
-      }      
-      for (int i=0; i<people; i++) {
-        temp_c[conbi[people][N][c][i]] -= 2;
-      }
-      bool votable = true;
-      for (int i=0; i<N; i++) {
-        if (temp_c[i] < 0) votable = false;
-      }
-      if (!votable) continue;
-      int max = -100;
-      for (int i=0; i<N; i++) {
-        if (max < temp_c[i]) max = temp_c[i];
-      }
-      if (min_of_max > max) {
-        saiyo_zorome = (conbi[people][N][c][0] == conbi[people][N][c][1]);
-        min_of_max = max;
-        saiyo = c;
-      } else if (min_of_max == max) {
-        if (saiyo_zorome 
-            && (conbi[people][N][c][0] != conbi[people][N][c][1])) {
-          saiyo_zorome = false;
-          saiyo = c;
-        }
-      }
-    }
-    for (int i=0; i<people; i++) {
-      L[i] = conbi[people][N][saiyo][i];
-    }
-  } else {
-    for (int i=0; i<people; i++) {
-      L[i] = L_prep[i];
-    }
+  for (int i=0; i<people; i++) {
+    L[i] = L_prep[i];
   }
 }
 
@@ -879,6 +931,9 @@ int main() {
   first_init();
   // ターン情報
   for (int t=1; t<=T; t++) {
+    if (debug) {
+      cerr << "@@@@@@@@@@@@ Turn " << t << " @@@@@@@@@@@@" << endl;
+    }
     turn_init();
     if (debug_time) {
       auto startTime = chrono::system_clock::now();
