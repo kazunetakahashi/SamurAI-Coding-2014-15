@@ -31,6 +31,7 @@ int total_score; // 兵力の合計値
 const int strategy[10] = {10, 10, 3, 3, 3, 3, 1, 1, 1, 1}; // 天秤にかける戦略数
 int now_amari = 0;
 bool bug[P]; // 相手が child process ended なっているかどうかを判定する。
+int bug_people;
 
 // ターンでの変数
 int turn; // 現在のターン
@@ -83,10 +84,6 @@ int randmod(int m) {
 
 void make_random_sheet() {
   int done_night = remain_night[0] - remain_night[turn];
-  int bug_people = 0;
-  for (int j=1; j<P; j++) {
-    if (bug[j]) bug_people++;
-  }
   int bug_zero = bug_people * done_night;
   for (int i=0; i<N; i++) {
     RS[i][0] = R[turn][i];
@@ -285,6 +282,10 @@ void ended() {
         bug[p] = true;
       }
     }
+  }
+  bug_people = 0;
+  for (int j=1; j<P; j++) {
+    if (bug[j]) bug_people++;
   }
   if (debug) {
     for (int p=1; p<P; p++) {
@@ -513,13 +514,10 @@ int score(int x, int y) {
 
 void determine_priority() {
   vector< tuple<int, int, int> > Vec; // win, x, y  
-  // int max_x = x_now;
-  // int max_y = y_now;
   random_sev();
-  // int max_win = -100;
   for (int x=0; x< (1 << N); x++) {
     for (int y=0; y< (1 << N); y++) {
-      if (isvalid(x, y) && score(x, y) > -1 * points_zenhan[0]) {
+      if (isvalid(x, y) && score(x, y) > 0) {
         int win = 0;
         for (int t=0; t<RD; t++) {
           // 残りターン数で実現可能か
@@ -548,18 +546,17 @@ void determine_priority() {
         }
         // 「勝った回数」が正なら記録
         if (win > 0) {
-          Vec.push_back(make_tuple(win, x, y));
+          Vec.push_back(make_tuple(-1 * win, x, y));
         }
       }
     }
   }
   sort(Vec.begin(), Vec.end());
-  reverse(Vec.begin(), Vec.end());
   int st_num = min(strategy[turn], (int)Vec.size());
   if (debug) {
     cerr << "Rank of Strategies" << endl;
     for (int s=0; s<st_num; s++) {
-      int win = get<0>(Vec[s]);
+      int win = -1 * get<0>(Vec[s]);
       int x_now = get<1>(Vec[s]);
       int y_now = get<2>(Vec[s]);
       pair<int, int> temp_priority[N];
@@ -603,6 +600,10 @@ void determine_priority() {
       int y_now = get<2>(Vec[s]);
       // 余計な投票をしていないか
       bool is_there_yokei = false;
+      if (bug_people > 0 && tvotes[0] > 0) {
+        is_there_yokei = true;
+        goto yokei;
+      }
       for (int i=0; i<N; i++) {
         if (tvotes[i] > 0 &&
             ((x_now >> i) & 1) == 0 &&
@@ -611,6 +612,7 @@ void determine_priority() {
           break;
         };
       }
+    yokei:
       if (is_there_yokei) continue;
       for (int t=0; t<RD_D; t++) {
         // 残りターン数で実現可能か
@@ -644,19 +646,18 @@ void determine_priority() {
     }
     // 「勝った回数」が正なら記録
     if (win > 0) {
-      L_vec.push_back(make_tuple(win, c));
+      L_vec.push_back(make_tuple(-1 * win, c));
     }
   }
   if (L_vec.empty()) {
-    L_vec.push_back(make_tuple(-100, 0));
+    L_vec.push_back(make_tuple(100, 0));
   }
   sort(L_vec.begin(), L_vec.end());
-  reverse(L_vec.begin(), L_vec.end());
   if (debug) {
     cerr << "Rank of Combis" << endl;
     int s_combi = min((int)L_vec.size(), 10);
     for (int s=0; s<s_combi; s++) {
-      int win = get<0>(L_vec[s]);
+      int win = -1 * get<0>(L_vec[s]);
       int c = get<1>(L_vec[s]);
       cerr << "no. " << s << " win: " << win
            << " of " << RD_D * st_num << " conbi: ";
