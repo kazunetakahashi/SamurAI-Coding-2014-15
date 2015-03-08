@@ -1,5 +1,6 @@
 #include <iostream>
 #include <algorithm>
+#define NDEBUG
 #include <cassert>
 #include <random>
 #include <tuple>
@@ -12,7 +13,7 @@ using namespace std;
 
 // デバッグ用
 bool debug = false;
-bool debug_time = true;
+bool debug_time = false;
 
 // 大域変数・定数
 const int T = 9; // 全ターン数
@@ -26,7 +27,7 @@ const int noonpeople = 5;
 const int nightpeople = 2;
 int A[N]; // 領主の兵力
 int total_score; // 兵力の合計値
-const int strategy[10] = {3, 3, 3, 3, 3, 3, 3, 3, 3, 3}; // 天秤にかける戦略数
+const int strategy[10] = {3, 3, 3, 3, 3, 3, 1, 1, 1, 1}; // 天秤にかける戦略数
 int now_amari = 0;
 bool bug[P]; // 相手が child process ended なっているかどうかを判定する。
 
