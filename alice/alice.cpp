@@ -26,8 +26,9 @@ int expected_votes[10]; // 昼なら5、夜なら9である。
 const int noonpeople = 5;
 const int nightpeople = 2;
 int A[N]; // 領主の兵力
+int f_priority[N]; // 最初だけ使う
 int total_score; // 兵力の合計値
-const int strategy[10] = {3, 3, 3, 3, 3, 3, 1, 1, 1, 1}; // 天秤にかける戦略数
+const int strategy[10] = {10, 10, 3, 3, 3, 3, 1, 1, 1, 1}; // 天秤にかける戦略数
 int now_amari = 0;
 bool bug[P]; // 相手が child process ended なっているかどうかを判定する。
 
@@ -254,7 +255,7 @@ void determine_points_zenhan() { // 前半のポイントを計算する。
   sort(temp_score, temp_score+P);
   reverse(temp_score, temp_score+P);
   if (temp_score[0] - epsilon < points_zenhan[0]) { // 前半1位
-    minimum_score = temp_score[1];
+    minimum_score = (temp_score[1] + temp_score[0] * 2)/3 + 1;
   } else if (temp_score[1] - epsilon < points_zenhan[0]) { // 前半2位
     minimum_score = temp_score[0];
   } else { // 前半3・4位 (実は2位も同じ計算式)
@@ -332,6 +333,22 @@ void first_init() {
   for (int i=0; i<N; i++) {
     cin >> A[i];
     total_score += A[i];
+  }
+  // 1ターン目投票用priorityの確定
+  int min_score = 1000;
+  for (int i=0; i<N; i++) {
+    if (min_score > A[i]) min_score = A[i];
+  }
+  for (int i=N-1; i>=0; i--) {
+    if (min_score == A[i]) {
+      f_priority[N-1] = i;
+    }
+  }
+  int j = 0;
+  for (int i=0; i<N; i++) {
+    if (i != f_priority[N-1]) {
+      f_priority[j++] = i;
+    }
   }
   // minimum_scoreの計算
   minimum_score = minimum_rate * total_score;
@@ -888,12 +905,12 @@ void depth_last() {
 
 // 実行
 void determine_L() {
-  /* if (turn == 1) {
+  if (turn == 1) {
     for (int i=0; i<people; i++) {
-      L[i] = priority[i];
+      L[i] = f_priority[i];
     }
     return;
-    } */
+  }
   if (turn == 1 || turn == 2 || turn == 3 || turn == 6 || turn == 7) {
     determine_priority();
   } else { // turn == 4 || turn == 5 || turn == 8 || turn == 9
