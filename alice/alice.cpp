@@ -33,7 +33,8 @@ const int night_maxrep = 5;
 int A[N]; // 領主の兵力
 int f_priority[N]; // 最初だけ使う
 int total_score; // 兵力の合計値
-const int strategy[10] = {2, 2, 2, 2, 2, 2, 1, 1, 1, 1}; // 天秤にかける戦略数
+const int strategy[10] = {2, 2, 2, 2, 2, 2, 2, 2, 2, 2}; // 天秤にかける戦略数
+bool chukan_top = false;
 int now_amari = 0;
 bool bug[P]; // 相手が child process ended なっているかどうかを判定する。
 int bug_people;
@@ -257,8 +258,10 @@ void determine_points_zenhan() { // 前半のポイントを計算する。
   }
   sort(temp_score, temp_score+P);
   reverse(temp_score, temp_score+P);
+  chukan_top = false;
   if (temp_score[0] - epsilon < points_zenhan[0]) { // 前半1位
     minimum_score = temp_score[0];
+    chukan_top = true;
     return;
   } else if (temp_score[1] - epsilon < points_zenhan[0]) { // 前半2位
     minimum_score = temp_score[0];
@@ -563,6 +566,7 @@ void determine_priority() {
   }
   sort(Vec.begin(), Vec.end());
   int st_num = min(strategy[turn], (int)Vec.size());
+  if (turn > 5 && (!chukan_top)) st_num = min(st_num, 1);
   if (debug) {
     cerr << "Rank of Strategies" << endl;
     for (int s=0; s<st_num; s++) {
@@ -613,7 +617,7 @@ void determine_priority() {
       int y_now = get<2>(Vec[s]);
       bool is_there_yokei = false;
       // 多すぎる投票をしていないか
-      if (turn <= 5) {
+      if (turn <= 5 || chukan_top) {
         for (int i=0; i<N; i++) {
           if (tvotes[i] > maxrep) {
             is_there_yokei = true;
@@ -622,7 +626,7 @@ void determine_priority() {
         }
       }
       // 余計な投票をしていないか
-      if (turn <= 5 && isnoon) {
+      if ((turn <= 5 || chukan_top) && isnoon) {
         for (int i=0; i<N; i++) {
           if (tvotes[i] > 0 &&
               ((y_now >> i) & 1) == 0) {
