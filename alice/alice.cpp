@@ -617,7 +617,7 @@ void determine_priority() {
       int y_now = get<2>(Vec[s]);
       bool is_there_yokei = false;
       // 多すぎる投票をしていないか
-      if (turn <= 5 || chukan_top) {
+      if (turn <= 5) {
         for (int i=0; i<N; i++) {
           if (tvotes[i] > maxrep) {
             is_there_yokei = true;
@@ -626,7 +626,7 @@ void determine_priority() {
         }
       }
       // 余計な投票をしていないか
-      if ((turn <= 5 || chukan_top) && isnoon) {
+      if (turn <= 5 && isnoon) {
         for (int i=0; i<N; i++) {
           if (tvotes[i] > 0 &&
               ((y_now >> i) & 1) == 0) {
