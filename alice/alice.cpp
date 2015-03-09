@@ -15,6 +15,9 @@ using namespace std;
 bool debug = false;
 bool debug_time = false;
 
+// 最後まで悩む
+bool f_turn_rand = true;
+
 // 大域変数・定数
 const int T = 9; // 全ターン数
 const int P = 4; // プレイヤー(大名)数
@@ -25,10 +28,12 @@ int remain_votes[10]; // remain_day + remain_night * 2
 int expected_votes[10]; // 昼なら5、夜なら9である。
 const int noonpeople = 5;
 const int nightpeople = 2;
+const int noon_maxrep = 3;
+const int night_maxrep = 5;
 int A[N]; // 領主の兵力
 int f_priority[N]; // 最初だけ使う
 int total_score; // 兵力の合計値
-const int strategy[10] = {10, 10, 3, 3, 3, 3, 1, 1, 1, 1}; // 天秤にかける戦略数
+const int strategy[10] = {1, 5, 3, 5, 3, 5, 1, 1, 1, 1}; // 天秤にかける戦略数
 int now_amari = 0;
 bool bug[P]; // 相手が child process ended なっているかどうかを判定する。
 int bug_people;
@@ -44,8 +49,8 @@ int people; // 出力数
 int L[noonpeople]; // 出力
 
 // ランダムで方針を決定するためのもの
-const int RD_turn[10] = {0, 12000, 1500, 12000, 1500, 4000,
-                         1500, 12000, 1500, 4000}; // RD = RD_turn[turn];
+const int RD_turn[10] = {0, 13500, 2000, 13500, 1500, 3500,
+                         1750, 12000, 1500, 3500}; // RD = RD_turn[turn];
 const int RD_M = 40000;
 int RD;
 int random_votes[T+1][RD_M][N][P];
@@ -57,8 +62,10 @@ int rv_n_first_max[T+1][N];
 int rv_n_third_max[T+1][N];
 int rv_n_first_min[T+1][N];
 int rv_n_third_min[T+1][N];
-const double minimum_rate = 0.1; // 合格最低ライン
+const double minimum_rate[10] = {0.15, 0.15, 0.15, 0.15, 0.1, 0.1,
+                                 0.1, 0.1, 0.1, 0.1}; // 合格最低ライン
 double minimum_score; // 合格最低点
+int maxrep; // determine_priority の 最大重複数
 
 // 深さ優先探査で総当りするためのもの
 typedef tuple<int, int*> future;
@@ -233,7 +240,6 @@ bool isnowtop_other(int expect[N][P], int p) {
   return true;
 }
 
-
 void determine_points_zenhan() { // 前半のポイントを計算する。
   fill(points_zenhan, points_zenhan+P, 0);
   getpoint(B[turn], points_zenhan);
@@ -252,13 +258,15 @@ void determine_points_zenhan() { // 前半のポイントを計算する。
   sort(temp_score, temp_score+P);
   reverse(temp_score, temp_score+P);
   if (temp_score[0] - epsilon < points_zenhan[0]) { // 前半1位
-    minimum_score = (temp_score[1] + temp_score[0] * 2)/3 + 1;
+    minimum_score = temp_score[0];
+    return;
   } else if (temp_score[1] - epsilon < points_zenhan[0]) { // 前半2位
     minimum_score = temp_score[0];
   } else { // 前半3・4位 (実は2位も同じ計算式)
     minimum_score = temp_score[0] + temp_score[1] - points_zenhan[0];
   }
-  minimum_score = max(total_score * minimum_rate, minimum_score + epsilon);
+  minimum_score = max(total_score * minimum_rate[turn],
+                      minimum_score + epsilon);
 }
 
 // child process ended 判定
@@ -351,8 +359,6 @@ void first_init() {
       f_priority[j++] = i;
     }
   }
-  // minimum_scoreの計算
-  minimum_score = minimum_rate * total_score;
 }
 
 void turn_init() {
@@ -362,8 +368,10 @@ void turn_init() {
   isnoon = (D == 'D');
   if (isnoon) {
     people = noonpeople;
+    maxrep = noon_maxrep;
   } else {
     people = nightpeople;
+    maxrep = night_maxrep;
   }
   for (int i=0; i<N; i++) {
     for (int j=0; j<P; j++) {
@@ -373,7 +381,9 @@ void turn_init() {
   for (int i=0; i<N; i++) {
     cin >> R[turn][i];
   }
-  if (turn == 6) {
+  if (turn <= 5) {
+    minimum_score = minimum_rate[turn] * total_score;
+  } else if (turn == 6) {
     fill(W, W+P, 0);
     determine_points_zenhan();
   }
@@ -595,22 +605,40 @@ void determine_priority() {
     for (int i=0; i<expected_votes[turn]; i++) {
       tvotes[conbi[expected_votes[turn]][N][c][i]]++;
     }
+    if (bug_people > 0 && tvotes[0] > 0) { // bugがいるときは0に投票しない
+      continue;
+    }
     for (int s=0; s<st_num; s++) {
       int x_now = get<1>(Vec[s]);
       int y_now = get<2>(Vec[s]);
-      // 余計な投票をしていないか
       bool is_there_yokei = false;
-      if (bug_people > 0 && tvotes[0] > 0) {
-        is_there_yokei = true;
-        goto yokei;
+      // 多すぎる投票をしていないか
+      if (turn <= 5) {
+        for (int i=0; i<N; i++) {
+          if (tvotes[i] > maxrep) {
+            is_there_yokei = true;
+            goto yokei;
+          }
+        }
       }
-      for (int i=0; i<N; i++) {
-        if (tvotes[i] > 0 &&
-            ((x_now >> i) & 1) == 0 &&
-            ((y_now >> i) & 1) == 0) {
-          is_there_yokei = true;
-          break;
-        };
+      // 余計な投票をしていないか
+      if (turn <= 5 && isnoon) {
+        for (int i=0; i<N; i++) {
+          if (tvotes[i] > 0 &&
+              ((y_now >> i) & 1) == 0) {
+            is_there_yokei = true;
+            goto yokei;
+          }
+        }
+      } else {
+        for (int i=0; i<N; i++) {
+          if ((tvotes[i] > 0 &&
+               ((x_now >> i) & 1) == 0 &&
+               ((y_now >> i) & 1) == 0)) {
+            is_there_yokei = true;
+            goto yokei;
+          }
+        }
       }
     yokei:
       if (is_there_yokei) continue;
@@ -906,7 +934,7 @@ void depth_last() {
 
 // 実行
 void determine_L() {
-  if (turn == 1) {
+  if (turn == 1 && f_turn_rand) {
     for (int i=0; i<people; i++) {
       L[i] = f_priority[i];
     }
