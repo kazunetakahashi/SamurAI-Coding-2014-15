@@ -64,7 +64,7 @@ int rv_n_third_max[T+1][N];
 int rv_n_first_min[T+1][N];
 int rv_n_third_min[T+1][N];
 const double minimum_rate[10] = {0.15, 0.15, 0.15, 0.15, 0.1, 0.1,
-                                 0.1, 0.1, 0.1, 0.1}; // 合格最低ライン
+                                 0.15, 0.15, 0.1, 0.1}; // 合格最低ライン
 double minimum_score; // 合格最低点
 int maxrep; // determine_priority の 最大重複数
 
@@ -258,18 +258,13 @@ void determine_points_zenhan() { // 前半のポイントを計算する。
   }
   sort(temp_score, temp_score+P);
   reverse(temp_score, temp_score+P);
-  chukan_top = false;
   if (temp_score[0] - epsilon < points_zenhan[0]) { // 前半1位
-    minimum_score = temp_score[0];
+    minimum_score = minimum_rate[turn] * total_score;
     chukan_top = true;
-    return;
-  } else if (temp_score[1] - epsilon < points_zenhan[0]) { // 前半2位
+  } else {
     minimum_score = temp_score[0];
-  } else { // 前半3・4位 (実は2位も同じ計算式)
-    minimum_score = temp_score[0] + temp_score[1] - points_zenhan[0];
+    chukan_top = false;
   }
-  minimum_score = max(total_score * minimum_rate[turn],
-                      minimum_score + epsilon);
 }
 
 // child process ended 判定
@@ -389,6 +384,8 @@ void turn_init() {
   } else if (turn == 6) {
     fill(W, W+P, 0);
     determine_points_zenhan();
+  } else if (chukan_top) {
+    minimum_score = minimum_rate[turn] * total_score;
   }
   if (isnoon) {
     for (int i=0; i<N; i++) {
