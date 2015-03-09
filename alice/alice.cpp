@@ -16,7 +16,7 @@ bool debug = false;
 bool debug_time = false;
 
 // 最後まで悩む
-bool f_turn_rand = true;
+bool f_turn_rand = false;
 
 // 大域変数・定数
 const int T = 9; // 全ターン数
@@ -623,7 +623,7 @@ void determine_priority() {
         }
       }
       // 余計な投票をしていないか
-      if (turn <= 5 && isnoon) {
+      if (turn >=2 && turn <= 5 && isnoon) {
         for (int i=0; i<N; i++) {
           if (tvotes[i] > 0 &&
               ((y_now >> i) & 1) == 0) {
