@@ -33,7 +33,7 @@ const int night_maxrep = 5;
 int A[N]; // 領主の兵力
 int f_priority[N]; // 最初だけ使う
 int total_score; // 兵力の合計値
-const int strategy[10] = {1, 5, 3, 5, 3, 5, 1, 1, 1, 1}; // 天秤にかける戦略数
+const int strategy[10] = {2, 2, 2, 2, 2, 2, 1, 1, 1, 1}; // 天秤にかける戦略数
 int now_amari = 0;
 bool bug[P]; // 相手が child process ended なっているかどうかを判定する。
 int bug_people;
